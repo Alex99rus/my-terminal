@@ -1,0 +1,316 @@
+/* Тёмная тема, как в TradingView */
+:root {
+  --bg: #0e1116;
+  --panel: #161a22;
+  --border: #262b36;
+  --text: #d1d4dc;
+  --muted: #787b86;
+  --accent: #2962ff;
+  --up: #26a69a;
+  --down: #ef5350;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+body { display: flex; flex-direction: column; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.logo { font-weight: 600; margin-right: 8px; }
+
+.symbol, .market {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font: inherit;
+}
+.symbol { width: 190px; text-transform: uppercase; }
+.symbol:focus, .market:focus { outline: none; border-color: var(--accent); }
+
+
+
+.price { margin-left: auto; font-variant-numeric: tabular-nums; }
+#last { font-size: 16px; font-weight: 600; margin-right: 6px; }
+.up { color: var(--up); }
+.down { color: var(--down); }
+
+/* ---------- Кнопки раскладки и синхронизации ---------- */
+.sync { display: flex; gap: 2px; }
+.sync button {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--muted);
+  padding: 5px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+.sync button:hover { background: var(--border); color: var(--text); }
+
+/* Кнопка раскладки и выпадающее меню */
+.layout-pick { position: relative; }
+.layout-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 5px 8px;
+  cursor: pointer;
+}
+.layout-btn:hover { background: var(--border); }
+.layout-btn .arrow { color: var(--muted); font-size: 12px; }
+.layouts-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  width: 250px;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #0008;
+}
+.layouts-menu.open { display: block; }
+.layouts-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.layouts-menu button:hover { background: var(--border); }
+.layouts-menu button.active { background: #2962ff26; color: var(--accent); }
+.sync button.active { color: var(--accent); background: #2962ff1f; }
+
+/* Значок раскладки — маленькая сетка из прямоугольников */
+.mini {
+  display: grid;
+  width: 22px;
+  height: 16px;
+  gap: 2px;
+}
+.mini i { background: currentColor; border-radius: 1px; opacity: 0.8; }
+.layouts-menu button .mini { color: var(--muted); flex: none; }
+.layouts-menu button.active .mini, .layout-btn .mini { color: var(--accent); }
+
+/* ---------- Сетка окон ---------- */
+.grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  gap: 2px;
+  background: var(--border);
+}
+/* Сами раскладки задаются из layout.js */
+.grid { position: relative; }
+
+/* ---------- Границы между окнами ---------- */
+.splitters { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+.splitter { position: absolute; pointer-events: auto; }
+.splitter.v { width: 8px; margin-left: -4px; cursor: col-resize; }
+.splitter.h { height: 8px; margin-top: -4px; cursor: row-resize; }
+.splitter::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.splitter.v::after { width: 2px; }
+.splitter.h::after { height: 2px; }
+.splitter:hover::after, .splitter.dragging::after { opacity: 1; }
+/* пока тянем — курсор везде двойная стрелка и текст не выделяется */
+body.resizing-v, body.resizing-v * { cursor: col-resize !important; user-select: none; }
+body.resizing-h, body.resizing-h * { cursor: row-resize !important; user-select: none; }
+
+/* На телефоне окна идут столбиком */
+@media (max-width: 700px) {
+  .grid:not([data-layout="1"]) {
+    grid-template: none !important;
+    grid-auto-rows: minmax(260px, 1fr);
+    overflow-y: auto;
+  }
+  .grid > .pane { grid-area: auto !important; }
+  .splitters { display: none; }
+  .sync button { font-size: 12px; }
+}
+
+/* ---------- Одно окно ---------- */
+.pane {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+  outline: 1px solid transparent;
+  outline-offset: -1px;
+  isolation: isolate;
+}
+.pane.active { outline-color: var(--accent); }
+.pane-chart { position: absolute; inset: 0; z-index: 0; } /* график — под надписями окна */
+
+.pane-head {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  right: 70px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  pointer-events: none; /* чтобы мышь «проходила» к графику */
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+.pane-interval {
+  pointer-events: auto;
+  background: var(--panel);
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+/* Значок ⠿ — за него окно перетаскивают на место другого */
+.pane-drag {
+  pointer-events: auto;
+  cursor: grab;
+  color: var(--muted);
+  padding: 0 2px;
+  font-size: 15px;
+  line-height: 1;
+  user-select: none;
+}
+.pane-drag:hover { color: var(--text); }
+.pane.drop-target::after {
+  content: "Поменять местами";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  background: #2962ff33;
+  border: 2px dashed var(--accent);
+  color: var(--text);
+  font-size: 16px;
+  pointer-events: none;
+}
+.pane.dragging { opacity: 0.5; }
+
+.pane-ohlc span { margin-right: 6px; color: var(--muted); }
+.pane-ohlc i { font-style: normal; }
+
+.pane-status {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  display: none;
+  white-space: nowrap;
+}
+.pane-status.show { display: block; }
+
+/* ---------- Снимок ---------- */
+.snap { position: relative; display: flex; }
+.snap > button {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 5px 9px;
+  cursor: pointer;
+  font: inherit;
+}
+.snap > button:first-child { border-radius: 4px 0 0 4px; }
+.snap > .snap-arrow { border-left: none; border-radius: 0 4px 4px 0; padding: 5px 6px; color: var(--muted); }
+.snap > button:hover { background: var(--border); }
+.snap.busy > button { opacity: 0.5; pointer-events: none; }
+
+.snap-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: 250px;
+  padding: 10px 12px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #0008;
+}
+.snap-menu.open { display: block; }
+.snap-menu label { display: block; padding: 3px 0; cursor: pointer; }
+.snap-menu input { accent-color: var(--accent); margin-right: 6px; }
+.snap-title { color: var(--muted); font-size: 12px; margin: 8px 0 2px; }
+.snap-title:first-child { margin-top: 0; }
+.snap-scales { display: flex; gap: 14px; }
+.snap-size { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.snap-go {
+  width: 100%;
+  margin-top: 10px;
+  padding: 7px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.snap-go:hover { filter: brightness(1.1); }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 50;
+  padding: 9px 16px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px #0008;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.toast.show { opacity: 1; transform: translateX(-50%); }
