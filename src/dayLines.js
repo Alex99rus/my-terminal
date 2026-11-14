@@ -1,8 +1,20 @@
-// Вертикальные линии на границах дня — на таймфреймах до 1 часа включительно.
-// День — как у бирж: по UTC (00:00 UTC = 03:00 по Москве), там же, где начинается дневная свеча.
+// Вертикальные линии на границах периодов:
+//  • на 1м … 1ч — границы дня
+//  • на 4ч — границы недели
+// Как у бирж: по UTC (00:00 UTC = 03:00 по Москве), неделя — с понедельника, там же,
+// где начинаются дневная и недельная свечи.
 
-const MAX_SEC = 3600 // показываем на 1м … 1ч
 const COLOR = '#3a3f4b'
+const DAY = 86400
+const WEEK = 7 * DAY
+const MONDAY = 4 * DAY // 1 января 1970 — четверг, первый понедельник — 5 января
+
+// Номер периода, в который попадает время t (или null — линий на этом таймфрейме нет)
+function periodOf(sec) {
+  if (sec <= 3600) return (t) => Math.floor(t / DAY)
+  if (sec === 14400) return (t) => Math.floor((t - MONDAY) / WEEK)
+  return null
+}
 
 export class DayLinesPrimitive {
   /**
@@ -32,7 +44,8 @@ export class DayLinesPrimitive {
   }
 
   render(ctx, size) {
-    if (this.getSec() > MAX_SEC) return
+    const period = periodOf(this.getSec())
+    if (!period) return
     const bars = this.getBars()
     const ts = this.chart.timeScale()
     const range = ts.getVisibleLogicalRange()
@@ -47,8 +60,8 @@ export class DayLinesPrimitive {
     ctx.setLineDash([4 * this.k, 4 * this.k])
     ctx.beginPath()
     for (let i = from; i <= to; i++) {
-      // свеча i — первая в новом дне
-      if (Math.floor(bars[i].time / 86400) === Math.floor(bars[i - 1].time / 86400)) continue
+      // свеча i — первая в новом дне (неделе)
+      if (period(bars[i].time) === period(bars[i - 1].time)) continue
       const x = ts.logicalToCoordinate(i)
       if (x == null) continue
       const xx = Math.round(x - step / 2) + 0.5
