@@ -1044,3 +1044,20 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
 .lr-table tr[data-sym]:not([data-sym=""]) { cursor: pointer; }
 .lr-table tr[data-sym]:not([data-sym=""]):hover td { background: #2962ff22; }
 @media (max-width: 700px) { .lr-table { right: 60px; font-size: 10px; max-width: calc(100% - 70px); overflow-x: auto; } .lr-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Свои индикаторы (Pine Script) ---------- */
+.ind-add .ind-add-pine { border-style: dashed; border-color: #e0a80088; }
+.ind-add .ind-add-pine em { color: #e0a800; }
+.ind-pine-row button.ind-pine-set, .ind-pine-row button.ind-pine-code { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 5px; padding: 3px 8px; cursor: pointer; font: inherit; font-size: 12px; white-space: nowrap; }
+.pine-modal { width: min(820px, 96vw); max-height: 92vh; display: flex; flex-direction: column; }
+.pine-how { margin: 4px 0 10px; padding-left: 20px; line-height: 1.6; font-size: 13px; }
+.pine-code { width: 100%; box-sizing: border-box; min-height: 340px; flex: 1; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 10px; font: 12.5px/1.5 ui-monospace, Consolas, monospace; resize: vertical; tab-size: 4; white-space: pre; }
+.pine-err { color: var(--down); font-size: 13px; min-height: 18px; margin-top: 6px; white-space: pre-wrap; }
+.pine-note { font-size: 12px; color: var(--muted); max-width: 520px; line-height: 1.4; }
+.pine-inputs { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.pine-f input[type=number], .pine-f input[type=text], .pine-f select, .pine-f textarea { width: 180px; }
+.pine-f input[type=color] { width: 44px; height: 26px; padding: 0; border: none; background: none; }
+.pine-tables { position: absolute; left: 0; right: 0; pointer-events: none; z-index: 3; }
+.pine-table { position: absolute; pointer-events: auto; }
+.pine-table table { border-collapse: collapse; }
+.pine-table td { padding: 2px 6px; white-space: nowrap; }

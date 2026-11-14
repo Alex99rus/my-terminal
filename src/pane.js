@@ -13,6 +13,7 @@ import { TATable } from './traderAssistant.js'
 import { DayLinesPrimitive } from './dayLines.js'
 import { CountdownPrimitive } from './countdown.js'
 import { ThinBarSeries, addMainSeries } from './thinBars.js'
+import { PineRun } from './pine.js'
 import { tickMarkFormatter, crosshairTime } from './localTime.js'
 import { style, withAlpha, LINE_STYLE } from './chartSettings.js'
 import { paper } from './paper.js'
@@ -108,6 +109,7 @@ export class Pane {
     this.showVolume = settings.volume !== false // столбики объёма внизу графика
     this.taTables = [] // таблицы Trader Assistant
     this.indSeries = [] // нарисованные индикаторы: { ind, def, paneIndex, lines: [{ key, series, ctor, values }] }
+    this.pineRuns = [] // свои индикаторы на Pine Script
     this.hooks = hooks
     this.bars = []
     this.decimals = 2
@@ -389,10 +391,17 @@ export class Pane {
   buildIndicators() {
     for (const e of this.indSeries) for (const l of e.lines) this.chart.removeSeries(l.series)
     for (const t of this.taTables) t.destroy()
+    for (const r of this.pineRuns) r.destroy()
     this.indSeries = []
     this.taTables = []
+    this.pineRuns = []
     let nextPane = 1 // индикаторы «в своей панели» идут под графиком по очереди
+    const pine = []
     for (const ind of this.indicators) {
+      if (ind.type === 'pine') {
+        pine.push(ind)
+        continue
+      }
       const def = INDICATORS[ind.type]
       if (!def) continue
       if (def.table) {
@@ -419,11 +428,19 @@ export class Pane {
       }
       this.indSeries.push({ ind, def, paneIndex, lines, precision })
     }
-    // главная панель выше панелей индикаторов
-    const panes = this.chart.panes()
-    panes.forEach((p, i) => p.setStretchFactor(i === 0 ? 3 : 1))
+    // свои индикаторы (Pine Script): «на графике» или в своей панели под ним
+    for (const ind of pine) {
+      const overlay = /overlay\s*=\s*true/.test(ind.code.match(/(?:indicator|study|strategy)\s*\(([\s\S]*?)\)\s*(?:\n|$)/)?.[1] || '')
+      this.pineRuns.push(new PineRun(this, ind, overlay ? 0 : nextPane++, overlay))
+    }
+    this.fixPaneHeights()
     this.updateIndicators(0)
     this.refreshLegend()
+  }
+
+  // главная панель выше панелей индикаторов
+  fixPaneHeights() {
+    this.chart.panes().forEach((p, i) => p.setStretchFactor(i === 0 ? 3 : 1))
   }
 
   // Перерисовать подписи, когда панели индикаторов уже получили свою высоту
@@ -439,6 +456,7 @@ export class Pane {
   updateIndicators(from) {
     const bars = this.bars
     const partial = from > 0 && from >= bars.length - 1
+    for (const r of this.pineRuns) r.schedule(partial ? 1500 : 0)
     for (const e of this.indSeries) {
       const res = e.def.calc(bars, e.ind.params)
       for (const l of e.lines) {
@@ -457,7 +475,7 @@ export class Pane {
 
   // Подписи индикаторов со значениями для свечи номер i
   showIndicatorLegend(i) {
-    if (!this.indSeries.length) {
+    if (!this.indSeries.length && !this.pineRuns.length) {
       this.legendsEl.innerHTML = ''
       return
     }
@@ -477,6 +495,10 @@ export class Pane {
       if (e.paneIndex === 0) top = 6 + head + overlayRow++ * 17
       else top = heights.slice(0, e.paneIndex).reduce((a, b) => a + b, 0) + e.paneIndex + 4 // +1 px на каждую границу
       html += `<div class="ind-legend" style="top:${top}px"><span style="color:${e.ind.color}">${indicatorLabel(e.ind)}</span> ${values}</div>`
+    }
+    for (const r of this.pineRuns) {
+      const top = r.paneIndex === 0 ? 6 + head + overlayRow++ * 17 : heights.slice(0, r.paneIndex).reduce((a, b) => a + b, 0) + r.paneIndex + 4
+      html += `<div class="ind-legend" style="top:${top}px">${r.legend(i)}</div>`
     }
     this.legendsEl.innerHTML = html
   }
@@ -772,6 +794,7 @@ export class Pane {
   destroy() {
     this.loadId++
     this.countdown?.stop()
+    for (const r of this.pineRuns) r.destroy()
     cancelAnimationFrame(this.frame)
     cancelAnimationFrame(this.legendFrame)
     this.resizeObs.disconnect()

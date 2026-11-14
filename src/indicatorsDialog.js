@@ -1,6 +1,7 @@
 // Окно «Индикаторы»: добавить, настроить, удалить.
 import { INDICATORS, INDICATOR_ORDER, newIndicator } from './indicators.js'
 import { LOCKED, lockedState, openLocked, onLockedChange } from './locked.js'
+import { openPineEditor, openPineInputs } from './pineDialog.js'
 
 /**
  * getList() — текущий список индикаторов
@@ -19,6 +20,7 @@ export function initIndicatorsDialog({ getList, onChange, getVolume, setVolume }
       <div class="ind-active"></div>
       <div class="ind-section">Добавить</div>
       <div class="ind-add">
+        <button data-type="pine" class="ind-add-pine"><b>＋ Свой индикатор</b><span>Вставьте код Pine Script из TradingView</span><em>Pine Script</em></button>
         <button data-type="volume" class="ind-add-volume"><b>Объём</b><span>Столбики объёма торгов внизу графика</span><em>на свечах</em></button>
         ${INDICATOR_ORDER.map((t) => {
           const d = INDICATORS[t]
@@ -38,6 +40,13 @@ export function initIndicatorsDialog({ getList, onChange, getVolume, setVolume }
 
   // Добавить индикатор
   for (const b of overlay.querySelectorAll('.ind-add button')) {
+    if (b.dataset.type === 'pine') {
+      b.onclick = () => {
+        close()
+        openPineEditor(null, (ind) => onChange([...getList(), ind]))
+      }
+      continue
+    }
     if (b.dataset.type === 'volume') {
       b.onclick = () => {
         setVolume(true)
@@ -82,6 +91,17 @@ export function initIndicatorsDialog({ getList, onChange, getVolume, setVolume }
     }
     activeEl.innerHTML = volumeRow + list
       .map((ind) => {
+        if (ind.type === 'pine') {
+          const n = Object.keys(ind.inputs || {}).length
+          return `<div class="ind-row ind-pine-row">
+            <span class="ind-vol-icon">📜</span>
+            <b>${ind.name.replace(/</g, '&lt;')}</b>
+            <span class="ind-params">Pine Script${n ? ` · изменено настроек: ${n}` : ''}</span>
+            <button class="ind-pine-set" data-id="${ind.id}" title="Настройки индикатора">⚙ Настройки</button>
+            <button class="ind-pine-code" data-id="${ind.id}" title="Изменить код">{ } Код</button>
+            <button class="ind-del" data-id="${ind.id}" title="Удалить">✕</button>
+          </div>`
+        }
         const def = INDICATORS[ind.type]
         const params = Object.entries(def.params)
           .map(([k, [label, , options]]) =>
@@ -111,6 +131,20 @@ export function initIndicatorsDialog({ getList, onChange, getVolume, setVolume }
     }
     for (const input of activeEl.querySelectorAll('input[type=color]')) {
       input.oninput = () => change(input.dataset.id, (ind) => ({ ...ind, color: input.value }))
+    }
+    for (const b of activeEl.querySelectorAll('.ind-pine-set')) {
+      b.onclick = () => {
+        const ind = getList().find((i) => i.id === b.dataset.id)
+        close()
+        openPineInputs(ind, (inputs) => change(ind.id, (i) => ({ ...i, inputs })))
+      }
+    }
+    for (const b of activeEl.querySelectorAll('.ind-pine-code')) {
+      b.onclick = () => {
+        const ind = getList().find((i) => i.id === b.dataset.id)
+        close()
+        openPineEditor(ind, (upd) => change(ind.id, () => upd))
+      }
     }
     for (const b of activeEl.querySelectorAll('.ind-del')) {
       if (b.dataset.volume) {

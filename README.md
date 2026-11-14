@@ -45,3 +45,4 @@
 - `src/help.js`, `public/help/` — видеоинструкция (кнопка «❓ Помощь») и связь с разработчиком
 - `src/locked.js`, `public/locked/` — закрытые индикаторы: код хранится только в зашифрованном виде, открывается личным паролем
 - `tools/lock.mjs` — шифрование закрытого индикатора (запускает разработчик: `node tools/lock.mjs lr исходник.js люди.json`)
+- `src/pine.js`, `src/pineWorker.js`, `src/pineDialog.js` — свои индикаторы из TradingView (Pine Script v5/v6). Код выполняет библиотека [PineTS](https://github.com/LuxAlgo/PineTS) (лицензия AGPL-3.0) в отдельном потоке браузера
