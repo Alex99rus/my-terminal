@@ -222,6 +222,7 @@ export class Pane {
       if (!this.hovered) return // это движение вызвала синхронизация, а не пользователь
       // цену передаём, только если мышь над свечами (а не над панелью индикатора внизу)
       const price = param.point && !param.paneIndex ? this.candles.coordinateToPrice(param.point.y) : null
+      this.crosshairPrice = price // для Alt+A — оповещение на цене под курсором
       this.hooks.onCrosshair(this, param.time ?? null, price)
     })
 

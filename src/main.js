@@ -6,6 +6,7 @@ import { renderPane, renderAll, download, copyToClipboard, fileName } from './sn
 import { initToolbar } from './toolbar.js'
 import { initIndicatorsDialog } from './indicatorsDialog.js'
 import { initWatchlist } from './watchlist.js'
+import { initAlerts } from './alerts.js'
 import './style.css'
 
 // ---------- Раскладки ----------
@@ -71,6 +72,7 @@ const hooks = {
   // Новая цена → обновляем цифру вверху, если это активное окно
   onPrice(pane, price) {
     if (pane === activePane) showLastPrice(price, pane.decimals)
+    alerts?.check(pane.key, price) // самая свежая цена — сразу проверяем оповещения
   },
 
   onIntervalChange() {
@@ -413,6 +415,14 @@ watchlist = initWatchlist({
 })
 $('starBtn').onclick = () => activePane && watchlist.toggle(activePane.symbol, activePane.market)
 afterSymbolChange()
+
+// ---------- Оповещения ----------
+let alerts = null
+alerts = initAlerts({
+  getPanes: () => panes,
+  getActivePane: () => activePane,
+  onOpen: (symbol, market) => openSymbol(symbol, market),
+})
 
 // ---------- Рисование ----------
 initToolbar({ getActiveKey: () => activePane?.key, getPanes: () => panes })

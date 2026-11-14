@@ -20,7 +20,27 @@ export const TOOLS = [
   { code: 'ray', title: 'Луч', points: 2 },
   { code: 'rect', title: 'Прямоугольник (Alt+R)', points: 2 },
   { code: 'fib', title: 'Коррекция по Фибоначчи (Alt+F)', points: 2 },
+  { code: 'alert', title: 'Оповещение о цене (Alt+A)', points: 1 },
 ]
+
+// Цвета линии оповещения: ждёт / сработало
+export const ALERT_COLOR = '#ff9800'
+export const ALERT_DONE_COLOR = '#787b86'
+
+/** Новое оповещение на цене price. lastPrice — текущая цена: по ней понимаем, ждём роста или падения */
+export function makeAlert(price, lastPrice) {
+  return {
+    id: uid(),
+    type: 'alert',
+    price,
+    dir: lastPrice != null && price < lastPrice ? 'down' : 'up', // цена должна упасть до уровня или вырасти
+    active: true,
+    created: Date.now(),
+    color: ALERT_COLOR,
+    width: 1,
+    dash: true,
+  }
+}
 const toolInfo = (code) => TOOLS.find((t) => t.code === code)
 
 export const COLORS = ['#2962ff', '#26a69a', '#ef5350', '#ff9800', '#e040fb', '#ffeb3b', '#ffffff', '#787b86']
@@ -49,7 +69,9 @@ const data = readJson(STORAGE, {}) // { 'futures:BTCUSDT': [рисунок, …]
 const settings = { color: '#2962ff', width: 2, dash: false, magnet: false, hidden: false, ...readJson(SETTINGS, {}) }
 const listeners = new Set()
 
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
+}
 
 export const draw = {
   tool: 'cursor',
@@ -58,6 +80,7 @@ export const draw = {
   settings,
 
   list: (key) => data[key] || [],
+  keys: () => Object.keys(data), // все монеты, на которых есть рисунки
   find: (key, id) => (data[key] || []).find((d) => d.id === id),
 
   add(key, d) {
@@ -212,6 +235,7 @@ function geometry(d, a, width) {
   const X = (t) => a.timeToX(t)
   const Y = (p) => a.priceToY(p)
   switch (d.type) {
+    case 'alert':
     case 'hline': {
       const y = Y(d.price)
       if (y == null) return null
@@ -320,15 +344,14 @@ export class DrawingsPrimitive {
 
   // Подписи цены на правой шкале для горизонтальных линий и точек выделенного рисунка
   priceAxisViews() {
-    if (settings.hidden) return []
     const out = []
     const a = this.a
-    const label = (price, color) => {
+    const label = (price, color, prefix = '') => {
       const y = a.priceToY(price)
       if (y == null) return
       out.push({
         coordinate: () => y,
-        text: () => a.format(price),
+        text: () => prefix + a.format(price),
         textColor: () => (color === '#ffffff' || color === '#ffeb3b' ? '#000' : '#fff'),
         backColor: () => color,
         visible: () => true,
@@ -337,7 +360,9 @@ export class DrawingsPrimitive {
     }
     const key = this.getKey()
     for (const d of draw.list(key)) {
-      if (d.type === 'hline' || d.type === 'hray') label(d.price, d.color)
+      if (d.type === 'alert') label(d.price, d.color, '🔔 ')
+      else if (settings.hidden) continue
+      else if (d.type === 'hline' || d.type === 'hray') label(d.price, d.color)
       else if (this.showSelection && draw.selected?.id === d.id && d.p1) {
         label(d.p1.price, d.color)
         label(d.p2.price, d.color)
@@ -348,7 +373,6 @@ export class DrawingsPrimitive {
 
   render(ctx, size) {
     this.renderSnap(ctx)
-    if (settings.hidden) return
     const key = this.getKey()
     const list = draw.list(key)
     if (!list.length) return
@@ -358,6 +382,7 @@ export class DrawingsPrimitive {
     ctx.rect(0, 0, width, size.height) // не рисуем поверх шкалы цен
     ctx.clip()
     for (const d of list) {
+      if (settings.hidden && d.type !== 'alert') continue // «скрыть рисунки» оповещения не прячет
       const g = geometry(d, this.a, width)
       if (!g) continue
       const selected = this.showSelection && draw.selected?.id === d.id
@@ -576,7 +601,9 @@ export class DrawingController {
       const p = this.point(x, y, e)
       if (!p) return
       const s = settings
-      const d = { id: uid(), type: tool, color: s.color, width: s.width, dash: s.dash }
+      const d = tool === 'alert'
+        ? makeAlert(p.price, this.pane.bars.at(-1)?.close)
+        : { id: uid(), type: tool, color: s.color, width: s.width, dash: s.dash }
       if (toolInfo(tool).points === 1) {
         if (tool === 'hline') d.price = p.price
         if (tool === 'vline') d.time = p.time
@@ -593,14 +620,14 @@ export class DrawingController {
         this.placeId = d.id
         this.placeStart = { x, y }
       }
-      if (settings.hidden) draw.setSetting('hidden', false)
+      if (settings.hidden && tool !== 'alert') draw.setSetting('hidden', false)
       this.grab(e)
       return
     }
 
     // курсор: щёлкнули по рисунку — выделяем и начинаем тянуть
-    if (settings.hidden) return
-    const hit = hitTest(draw.list(this.key), this.a, x, y)
+    const list = settings.hidden ? draw.list(this.key).filter((d) => d.type === 'alert') : draw.list(this.key)
+    const hit = hitTest(list, this.a, x, y)
     if (hit) {
       draw.select(this.key, hit.d.id)
       this.mode = 'drag'
@@ -629,8 +656,9 @@ export class DrawingController {
     // подсказка курсором: над рисунком — «рука» или «перемещение»
     let cls = ''
     if (draw.tool !== 'cursor') cls = 'cursor-draw'
-    else if (!settings.hidden && this.inside(x, y)) {
-      const hit = hitTest(draw.list(this.key), this.a, x, y)
+    else if (this.inside(x, y)) {
+      const list = settings.hidden ? draw.list(this.key).filter((d) => d.type === 'alert') : draw.list(this.key)
+      const hit = hitTest(list, this.a, x, y)
       if (hit) cls = hit.part === 'body' ? 'cursor-move' : 'cursor-point'
     }
     if (cls !== this.cursorCls) {
@@ -646,6 +674,12 @@ export class DrawingController {
       const { x, y } = this.local(e)
       if (Math.hypot(x - this.placeStart.x, y - this.placeStart.y) > 6) this.finishPlace(x, y, e)
     } else if (this.mode === 'drag') {
+      const d = draw.find(this.key, this.dragInfo.id)
+      // оповещение передвинули — оно снова ждёт; направление — от текущей цены
+      if (d?.type === 'alert') {
+        const last = this.pane.bars.at(-1)?.close
+        draw.update(this.key, d.id, { active: true, color: ALERT_COLOR, dir: last != null && d.price < last ? 'down' : 'up' }, false)
+      }
       this.mode = null
       this.dragInfo = null
       draw.save()

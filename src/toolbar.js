@@ -13,6 +13,7 @@ const ICONS = {
   ray: svg('<path d="M6 18L21 3"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="12" r="2"/>'),
   rect: svg('<rect x="4" y="6" width="16" height="12" rx="1"/>'),
   fib: svg('<path d="M3 5h18M3 9.5h18M3 14h18M3 19h18"/>'),
+  alert: svg('<path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 004 0"/>'),
   magnet: svg('<path d="M6 4v8a6 6 0 0012 0V4"/><path d="M6 8h4M14 8h4"/>'),
   eye: svg('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
   eyeOff: svg('<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0122 12s-1 2-3 4M6.3 6.3C3.6 8 2 12 2 12s3.5 7 10 7c1.6 0 3-.4 4.3-1"/>'),
@@ -131,7 +132,7 @@ export function initToolbar({ getActiveKey, getPanes }) {
   window.addEventListener('blur', () => draw.setCtrl(false))
 
   // ---------- Клавиши ----------
-  const HOTKEYS = { KeyH: 'hline', KeyJ: 'hray', KeyV: 'vline', KeyT: 'trend', KeyR: 'rect', KeyF: 'fib' }
+  const HOTKEYS = { KeyH: 'hline', KeyJ: 'hray', KeyV: 'vline', KeyT: 'trend', KeyR: 'rect', KeyF: 'fib' } // Alt+A — в alerts.js
   document.addEventListener('keydown', (e) => {
     if (e.target.closest('input, select, textarea')) return
     if (e.key === 'Escape') {
