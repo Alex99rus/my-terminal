@@ -4,8 +4,10 @@
 import {
   createChart, CandlestickSeries, BarSeries, LineSeries, AreaSeries, HistogramSeries, CrosshairMode,
 } from 'lightweight-charts'
+export { LineSeries, HistogramSeries }
 import { loadCandles, subscribeLive } from './binance.js'
 import { draw, makeAdapter, DrawingsPrimitive, DrawingController } from './drawings.js'
+import { INDICATORS, indicatorLabel } from './indicators.js'
 
 // Интервалы: подпись → код у Binance → длина в секундах
 export const INTERVALS = [
@@ -84,6 +86,8 @@ export class Pane {
     this.symbol = settings.symbol
     this.interval = settings.interval
     this.chartType = chartTypeInfo(settings.chartType).code
+    this.indicators = settings.indicators || [] // список индикаторов (общий для всех окон)
+    this.indSeries = [] // нарисованные индикаторы: { ind, def, paneIndex, lines: [{ key, series, ctor, values }] }
     this.hooks = hooks
     this.bars = []
     this.decimals = 2
@@ -100,6 +104,9 @@ export class Pane {
     this.buildDom()
     this.buildChart()
     this.drawCtl = new DrawingController(this) // мышь для рисования
+    // окно поменяло размер (или панели индикаторов) — подписи индикаторов на новые места
+    this.resizeObs = new ResizeObserver(() => this.refreshLegend())
+    this.resizeObs.observe(this.chartEl)
     this.offDraw = draw.subscribe(() => this.drawPrim?.requestUpdate()) // рисунки изменились — перерисовать
     this.load()
   }
@@ -123,10 +130,12 @@ export class Pane {
         <span class="pane-ohlc"></span>
       </div>
       <div class="pane-chart"></div>
+      <div class="pane-legends"></div>
       <div class="pane-status"></div>`
 
     this.symbolEl = this.el.querySelector('.pane-symbol')
     this.ohlcEl = this.el.querySelector('.pane-ohlc')
+    this.legendsEl = this.el.querySelector('.pane-legends')
     this.statusEl = this.el.querySelector('.pane-status')
     this.intervalSelect = this.el.querySelector('.pane-interval')
     this.intervalSelect.value = this.interval
@@ -202,6 +211,7 @@ export class Pane {
     // перевод «время/цена» ⇄ пиксели для рисунков
     this.adapter = makeAdapter(this.chart, () => this.candles, () => this.bars, () => this.intervalSec)
     this.createMainSeries()
+    this.buildIndicators()
 
     // Движение мыши по графику
     this.chart.subscribeCrosshairMove((param) => {
@@ -210,7 +220,8 @@ export class Pane {
       this.legendLive = !bar
       this.showOhlc(bar || this.bars.at(-1))
       if (!this.hovered) return // это движение вызвала синхронизация, а не пользователь
-      const price = param.point ? this.candles.coordinateToPrice(param.point.y) : null
+      // цену передаём, только если мышь над свечами (а не над панелью индикатора внизу)
+      const price = param.point && !param.paneIndex ? this.candles.coordinateToPrice(param.point.y) : null
       this.hooks.onCrosshair(this, param.time ?? null, price)
     })
 
@@ -247,6 +258,114 @@ export class Pane {
     if (range) this.chart.timeScale().setVisibleLogicalRange(range) // участок истории не прыгает
   }
 
+  // ---------- Индикаторы ----------
+
+  setIndicators(list) {
+    this.indicators = list
+    this.buildIndicators()
+  }
+
+  // Убираем старые линии индикаторов и создаём заново по списку
+  buildIndicators() {
+    for (const e of this.indSeries) for (const l of e.lines) this.chart.removeSeries(l.series)
+    this.indSeries = []
+    let nextPane = 1 // индикаторы «в своей панели» идут под графиком по очереди
+    for (const ind of this.indicators) {
+      const def = INDICATORS[ind.type]
+      if (!def) continue
+      const paneIndex = def.overlay ? 0 : nextPane++
+      const precision = def.precision ?? this.decimals
+      const lines = def.lines.map((line, n) => {
+        const ctor = line.type === 'histogram' ? HistogramSeries : LineSeries
+        const series = this.chart.addSeries(ctor, {
+          color: line.color || ind.color,
+          lineWidth: def.type === 'bb' && n > 0 ? 1 : 2,
+          priceLineVisible: false,
+          lastValueVisible: true,
+          crosshairMarkerVisible: false,
+          priceFormat: { type: 'price', precision, minMove: 10 ** -precision },
+        }, paneIndex)
+        return { key: line.key, series, ctor, values: [] }
+      })
+      // уровни (70/30 у RSI, 80/20 у стохастика) — пунктиром
+      for (const level of def.levels || []) {
+        lines[0].series.createPriceLine({ price: level, color: '#787b86', lineStyle: 2, lineWidth: 1, axisLabelVisible: false })
+      }
+      this.indSeries.push({ ind, def, paneIndex, lines, precision })
+    }
+    // главная панель выше панелей индикаторов
+    const panes = this.chart.panes()
+    panes.forEach((p, i) => p.setStretchFactor(i === 0 ? 3 : 1))
+    this.updateIndicators(0)
+    this.refreshLegend()
+  }
+
+  // Перерисовать подписи, когда панели индикаторов уже получили свою высоту
+  refreshLegend() {
+    cancelAnimationFrame(this.legendFrame)
+    this.legendFrame = requestAnimationFrame(() => this.showOhlc(this.lastShownBar || this.bars.at(-1)))
+  }
+
+  // Пересчитать индикаторы. from — с какой свечи изменились данные (0 — всё заново)
+  updateIndicators(from) {
+    const bars = this.bars
+    const partial = from > 0 && from >= bars.length - 2
+    for (const e of this.indSeries) {
+      const res = e.def.calc(bars, e.ind.params)
+      for (const l of e.lines) {
+        l.values = res[l.key]
+        const point = (i) => {
+          const v = l.values[i]
+          if (v == null) return { time: bars[i].time } // данных ещё не хватает — пустая точка
+          if (l.ctor === HistogramSeries) return { time: bars[i].time, value: v, color: v >= 0 ? UP + 'aa' : DOWN + 'aa' }
+          return { time: bars[i].time, value: v }
+        }
+        if (partial) for (let i = from; i < bars.length; i++) l.series.update(point(i))
+        else l.series.setData(bars.map((_, i) => point(i)))
+      }
+    }
+  }
+
+  // Подписи индикаторов со значениями для свечи номер i
+  showIndicatorLegend(i) {
+    if (!this.indSeries.length) {
+      this.legendsEl.innerHTML = ''
+      return
+    }
+    const heights = this.chart.panes().map((p) => p.getHeight())
+    const head = this.el.querySelector('.pane-head').offsetHeight
+    let overlayRow = 0
+    let html = ''
+    for (const e of this.indSeries) {
+      const values = e.lines
+        .map((l) => {
+          const v = l.values[i]
+          const color = e.def.lines.find((x) => x.key === l.key).color || e.ind.color
+          return v == null ? '' : `<i style="color:${color}">${fmt(v, e.precision)}</i>`
+        })
+        .join(' ')
+      let top
+      if (e.paneIndex === 0) top = 6 + head + overlayRow++ * 17
+      else top = heights.slice(0, e.paneIndex).reduce((a, b) => a + b, 0) + e.paneIndex + 4 // +1 px на каждую границу
+      html += `<div class="ind-legend" style="top:${top}px"><span style="color:${e.ind.color}">${indicatorLabel(e.ind)}</span> ${values}</div>`
+    }
+    this.legendsEl.innerHTML = html
+  }
+
+  // Для снимков: что нарисовать в легенде и где
+  legendItems() {
+    const i = this.bars.length - 1
+    return this.indSeries.map((e) => ({
+      paneIndex: e.paneIndex,
+      parts: [
+        { text: indicatorLabel(e.ind), color: e.ind.color },
+        ...e.lines
+          .filter((l) => l.values[i] != null)
+          .map((l) => ({ text: fmt(l.values[i], e.precision), color: e.def.lines.find((x) => x.key === l.key).color || e.ind.color })),
+      ],
+    }))
+  }
+
   // ---------- Данные ----------
   async load() {
     const id = ++this.loadId
@@ -256,6 +375,7 @@ export class Pane {
     this.noMoreHistory = false
     this.candles.setData([])
     this.volume.setData([])
+    for (const e of this.indSeries) for (const l of e.lines) l.series.setData([])
     this.symbolEl.textContent = this.symbol
     this.ohlcEl.innerHTML = ''
     this.showStatus('Загрузка…')
@@ -271,6 +391,8 @@ export class Pane {
       })
       this.candles.setData(this.bars.map(this.toPoint))
       this.volume.setData(this.bars.map(volumeBar))
+      for (const e of this.indSeries) e.precision = e.def.precision ?? this.decimals
+      this.updateIndicators(0)
       this.chart.timeScale().scrollToRealTime()
       this.showStatus('')
       this.showOhlc(this.bars.at(-1))
@@ -347,11 +469,13 @@ export class Pane {
       // поменялась старая свеча — проще перерисовать всё
       this.candles.setData(this.bars.map(this.toPoint))
       this.volume.setData(this.bars.map(volumeBar))
+      this.updateIndicators(0)
     } else {
       for (let i = from; i < this.bars.length; i++) {
         this.candles.update(this.toPoint(this.bars[i]))
         this.volume.update(volumeBar(this.bars[i]))
       }
+      this.updateIndicators(Math.max(1, from))
     }
     const last = this.bars.at(-1)
     if (this.legendLive) this.showOhlc(last)
@@ -371,6 +495,7 @@ export class Pane {
         this.bars = [...older, ...this.bars]
         this.candles.setData(this.bars.map(this.toPoint))
         this.volume.setData(this.bars.map(volumeBar))
+        this.updateIndicators(0)
       }
     } catch {
       // попробуем при следующей прокрутке
@@ -481,9 +606,11 @@ export class Pane {
   // ---------- Надписи ----------
   showOhlc(bar) {
     if (!bar) return
+    this.lastShownBar = bar
     const cls = bar.close >= bar.open ? 'up' : 'down'
     const v = (label, n) => `<span>${label} <i class="${cls}">${fmt(n, this.decimals)}</i></span>`
     this.ohlcEl.innerHTML = v('О', bar.open) + v('М', bar.high) + v('Н', bar.low) + v('З', bar.close)
+    this.showIndicatorLegend(this.indexAtOrBefore(bar.time))
   }
   showStatus(text) {
     this.statusEl.textContent = text
@@ -496,6 +623,8 @@ export class Pane {
   destroy() {
     this.loadId++
     cancelAnimationFrame(this.frame)
+    cancelAnimationFrame(this.legendFrame)
+    this.resizeObs.disconnect()
     this.offDraw()
     this.unsubscribe?.()
     this.chart.remove()

@@ -463,7 +463,9 @@ export class DrawingController {
   // Внутри ли области свечей (не на шкале цен и не на шкале времени)
   inside(x, y) {
     const ts = this.pane.chart.timeScale()
-    return x >= 0 && x <= ts.width() && y >= 0 && y <= this.el.clientHeight - ts.height()
+    // только верхняя панель со свечами (под ней могут быть панели индикаторов)
+    const mainHeight = this.pane.chart.panes()[0].getHeight()
+    return x >= 0 && x <= ts.width() && y >= 0 && y <= mainHeight
   }
 
   // Точка под мышью: время + цена. С магнитом (или с зажатым Ctrl) цена липнет к ближайшей

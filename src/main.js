@@ -4,6 +4,7 @@ import { loadTickers, loadTicker } from './binance.js'
 import { LAYOUTS, LAYOUT_ORDER, LETTERS, paneCount, applyGridTemplate, createSplitters } from './layout.js'
 import { renderPane, renderAll, download, copyToClipboard, fileName } from './snapshot.js'
 import { initToolbar } from './toolbar.js'
+import { initIndicatorsDialog } from './indicatorsDialog.js'
 import './style.css'
 
 // ---------- Раскладки ----------
@@ -20,6 +21,7 @@ const state = {
   sync: { symbol: true, crosshair: true, time: false, ...saved.sync },
   panes: saved.panes || [], // [{ symbol, interval }]
   active: saved.active || 0,
+  indicators: saved.indicators || [], // индикаторы — одни и те же во всех окнах
   snap: { what: 'active', scale: '3', to: 'file', ...saved.snap }, // настройки снимка
   sizes: saved.sizes || {}, // размеры окон для каждой раскладки: { '4': { cols: [..], rows: [..] } }
 }
@@ -119,6 +121,7 @@ function applyLayout(key) {
         symbol,
         interval: savedPane?.interval || DEFAULT_INTERVALS[i] || '1h',
         chartType: state.chartType,
+        indicators: state.indicators,
       },
       hooks,
     )
@@ -362,6 +365,19 @@ function toast(text) {
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => el.classList.remove('show'), 3500)
 }
+
+// ---------- Индикаторы ----------
+const indDialog = initIndicatorsDialog({
+  getList: () => state.indicators,
+  onChange(list) {
+    state.indicators = list
+    for (const p of panes) p.setIndicators(list)
+    $('indBtn').classList.toggle('active', list.length > 0)
+    save()
+  },
+})
+$('indBtn').onclick = () => indDialog.open()
+$('indBtn').classList.toggle('active', state.indicators.length > 0)
 
 // ---------- Рисование ----------
 initToolbar({ getActiveKey: () => activePane?.key, getPanes: () => panes })

@@ -53,6 +53,19 @@ export async function renderPane(pane, scale) {
     candles.attachPrimitive(new DrawingsPrimitive(adapter, () => pane.key, false, k))
     volume.setData(pane.volume.data())
 
+    // индикаторы: те же линии в тех же панелях, той же высоты
+    for (const e of pane.indSeries) {
+      for (const l of e.lines) {
+        const s2 = copy.addSeries(l.ctor, l.series.options(), e.paneIndex)
+        s2.setData(l.series.data())
+        for (const level of e.def.levels || []) {
+          if (l === e.lines[0]) s2.createPriceLine({ price: level, color: '#787b86', lineStyle: 2, lineWidth: 1, axisLabelVisible: false })
+        }
+      }
+    }
+    const origPanes = pane.chart.panes()
+    copy.panes().forEach((p, i) => origPanes[i] && p.setStretchFactor(origPanes[i].getHeight()))
+
     // Тот же участок истории…
     const range = pane.chart.timeScale().getVisibleLogicalRange()
     if (range) copy.timeScale().setVisibleLogicalRange(range)
@@ -65,6 +78,7 @@ export async function renderPane(pane, scale) {
     await nextFrame()
     const canvas = copy.takeScreenshot(true, false)
     drawLegend(canvas, pane, scale)
+    drawIndicatorLegend(canvas, pane, scale, copy)
     return canvas
   } finally {
     copy.remove()
@@ -96,6 +110,31 @@ function drawLegend(canvas, pane, scale) {
     for (const [label, value] of [['О', bar.open], ['М', bar.high], ['Н', bar.low], ['З', bar.close]]) {
       put(label, MUTED, false, 4)
       put(fmt(value, pane.decimals), c, false, 10)
+    }
+  }
+}
+
+// Подписи индикаторов: те, что на свечах, — строками под заголовком, остальные — в своих панелях
+function drawIndicatorLegend(canvas, pane, scale, copy) {
+  const items = pane.legendItems()
+  if (!items.length) return
+  const ctx = canvas.getContext('2d')
+  const dpr = window.devicePixelRatio || 1
+  const k = scale / dpr
+  const heights = copy.panes().map((p) => p.getHeight() * dpr) // высоты в пикселях картинки
+  const size = 12 * scale
+  ctx.font = `${size}px -apple-system, "Segoe UI", Roboto, sans-serif`
+  ctx.textBaseline = 'top'
+  let row = 0
+  for (const item of items) {
+    let y
+    if (item.paneIndex === 0) y = (34 + row++ * 17) * scale
+    else y = heights.slice(0, item.paneIndex).reduce((a, b) => a + b, 0) + (item.paneIndex + 4) * k * dpr
+    let x = 10 * scale
+    for (const part of item.parts) {
+      ctx.fillStyle = part.color
+      ctx.fillText(part.text, x, y)
+      x += ctx.measureText(part.text).width + 6 * scale
     }
   }
 }
