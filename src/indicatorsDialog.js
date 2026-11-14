@@ -64,7 +64,11 @@ export function initIndicatorsDialog({ getList, onChange, getVolume, setVolume }
       .map((ind) => {
         const def = INDICATORS[ind.type]
         const params = Object.entries(def.params)
-          .map(([k, [label]]) => `<label>${label} <input type="number" min="1" step="${k === 'mult' ? 0.1 : 1}" data-id="${ind.id}" data-param="${k}" value="${ind.params[k]}"></label>`)
+          .map(([k, [label, , options]]) =>
+            options
+              ? `<label>${label} <select data-id="${ind.id}" data-param="${k}">${options.map((o) => `<option ${String(ind.params[k]) === o ? 'selected' : ''}>${o}</option>`).join('')}</select></label>`
+              : `<label>${label} <input type="number" min="0.1" step="any" data-id="${ind.id}" data-param="${k}" value="${ind.params[k]}"></label>`,
+          )
           .join('')
         return `<div class="ind-row">
           <input type="color" data-id="${ind.id}" value="${ind.color}" title="Цвет">
@@ -75,6 +79,9 @@ export function initIndicatorsDialog({ getList, onChange, getVolume, setVolume }
       })
       .join('')
 
+    for (const sel of activeEl.querySelectorAll('select[data-param]')) {
+      sel.onchange = () => change(sel.dataset.id, (ind) => ({ ...ind, params: { ...ind.params, [sel.dataset.param]: sel.value } }))
+    }
     for (const input of activeEl.querySelectorAll('input[data-param]')) {
       input.onchange = () => {
         const v = parseFloat(input.value.replace(',', '.'))

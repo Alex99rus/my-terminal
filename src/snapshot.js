@@ -80,6 +80,7 @@ export async function renderPane(pane, scale) {
     const canvas = copy.takeScreenshot(true, false)
     drawLegend(canvas, pane, scale)
     drawIndicatorLegend(canvas, pane, scale, copy)
+    drawTATable(canvas, pane, scale, copy)
     return canvas
   } finally {
     copy.remove()
@@ -138,6 +139,48 @@ function drawIndicatorLegend(canvas, pane, scale, copy) {
       x += ctx.measureText(part.text).width + 6 * scale
     }
   }
+}
+
+// Таблица Trader Assistant — в левом нижнем углу панели со свечами, как на экране
+function drawTATable(canvas, pane, scale, copy) {
+  const table = pane.taTables?.[0]
+  const rows = table?.rows()
+  if (!rows) return
+  const ctx = canvas.getContext('2d')
+  const dpr = window.devicePixelRatio || 1
+  const base = (12 + 2 * (+table.ind.params.font || 0)) * scale
+  const font = (r) => `${r.big ? '600 ' : ''}${r.big ? base * 1.08 : base}px -apple-system, "Segoe UI", Roboto, sans-serif`
+  const pad = 6 * scale
+  const rowH = base * 1.55
+  // ширина столбцов — по самому длинному тексту
+  const widths = [0, 0, 0]
+  for (const r of rows) {
+    ctx.font = font(r)
+    r.cells.forEach((c, i) => (widths[i] = Math.max(widths[i], ctx.measureText(c).width)))
+  }
+  const w = widths.reduce((a, b) => a + b, 0) + pad * 6
+  const h = rows.length * rowH + pad
+  const mainH = copy.panes()[0].getHeight() * dpr
+  const x0 = 10 * scale
+  const y0 = mainH - h - 8 * scale
+  ctx.fillStyle = 'rgba(22, 26, 34, 0.88)'
+  ctx.fillRect(x0, y0, w, h)
+  ctx.strokeStyle = '#262b36'
+  ctx.lineWidth = scale
+  ctx.strokeRect(x0, y0, w, h)
+  ctx.textBaseline = 'middle'
+  ctx.textAlign = 'right'
+  rows.forEach((r, n) => {
+    ctx.font = font(r)
+    let x = x0 + pad
+    const y = y0 + pad / 2 + rowH * (n + 0.5)
+    r.cells.forEach((c, i) => {
+      x += widths[i] + pad * 2
+      ctx.fillStyle = r.colors[i]
+      ctx.fillText(c, x - pad, y)
+    })
+  })
+  ctx.textAlign = 'left'
 }
 
 /** Снимок всех окон одной картинкой — окна стоят так же, как на экране */

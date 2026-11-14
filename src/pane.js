@@ -8,6 +8,7 @@ export { LineSeries, HistogramSeries }
 import { loadCandles, subscribeLive } from './binance.js'
 import { draw, makeAdapter, DrawingsPrimitive, DrawingController } from './drawings.js'
 import { INDICATORS, indicatorLabel } from './indicators.js'
+import { TATable } from './traderAssistant.js'
 
 // Интервалы: подпись → код у Binance → длина в секундах
 export const INTERVALS = [
@@ -88,6 +89,7 @@ export class Pane {
     this.chartType = chartTypeInfo(settings.chartType).code
     this.indicators = settings.indicators || [] // список индикаторов (общий для всех окон)
     this.showVolume = settings.volume !== false // столбики объёма внизу графика
+    this.taTables = [] // таблицы Trader Assistant
     this.indSeries = [] // нарисованные индикаторы: { ind, def, paneIndex, lines: [{ key, series, ctor, values }] }
     this.hooks = hooks
     this.bars = []
@@ -278,11 +280,17 @@ export class Pane {
   // Убираем старые линии индикаторов и создаём заново по списку
   buildIndicators() {
     for (const e of this.indSeries) for (const l of e.lines) this.chart.removeSeries(l.series)
+    for (const t of this.taTables) t.destroy()
     this.indSeries = []
+    this.taTables = []
     let nextPane = 1 // индикаторы «в своей панели» идут под графиком по очереди
     for (const ind of this.indicators) {
       const def = INDICATORS[ind.type]
       if (!def) continue
+      if (def.table) {
+        this.taTables.push(new TATable(this, ind)) // таблица в углу, а не линии
+        continue
+      }
       const paneIndex = def.overlay ? 0 : nextPane++
       const precision = def.precision ?? this.decimals
       const lines = def.lines.map((line, n) => {
@@ -313,7 +321,10 @@ export class Pane {
   // Перерисовать подписи, когда панели индикаторов уже получили свою высоту
   refreshLegend() {
     cancelAnimationFrame(this.legendFrame)
-    this.legendFrame = requestAnimationFrame(() => this.showOhlc(this.lastShownBar || this.bars.at(-1)))
+    this.legendFrame = requestAnimationFrame(() => {
+      this.showOhlc(this.lastShownBar || this.bars.at(-1))
+      for (const t of this.taTables) t.place()
+    })
   }
 
   // Пересчитать индикаторы. from — с какой свечи изменились данные (0 — всё заново)
@@ -403,6 +414,7 @@ export class Pane {
       this.volume.setData(this.bars.map(volumeBar))
       for (const e of this.indSeries) e.precision = e.def.precision ?? this.decimals
       this.updateIndicators(0)
+      for (const t of this.taTables) t.refresh()
       this.chart.timeScale().scrollToRealTime()
       this.showStatus('')
       this.showOhlc(this.bars.at(-1))
@@ -490,6 +502,7 @@ export class Pane {
     }
     const last = this.bars.at(-1)
     if (this.legendLive) this.showOhlc(last)
+    for (const t of this.taTables) t.onPrice()
     this.hooks.onPrice(this, last.close)
   }
 
@@ -636,6 +649,7 @@ export class Pane {
     cancelAnimationFrame(this.frame)
     cancelAnimationFrame(this.legendFrame)
     this.resizeObs.disconnect()
+    for (const t of this.taTables) t.destroy()
     this.offDraw()
     this.drawCtl.destroy()
     this.unsubscribe?.()

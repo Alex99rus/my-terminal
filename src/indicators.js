@@ -93,6 +93,23 @@ const closes = (bars) => bars.map((b) => b.close)
 // lines — какие линии получаются; calc — формула, возвращает { имя линии: массив значений }
 
 export const INDICATORS = {
+  ta: {
+    name: 'Trader Assistant', title: 'Таблица по дневному ATR: стоп, тейк, люфт, границы дня, исчерпание ATR, объём', overlay: true,
+    table: true, // не линии, а таблица в углу графика (см. traderAssistant.js)
+    params: {
+      atrLength: ['Баров для ATR (дней)', 5],
+      stop: ['Стоп-лосс, % от ATR', 10],
+      take: ['Тейк-профит, × к стопу', 4],
+      slip: ['Люфт, % от стопа', 10],
+      longThr: ['Лонг при ATR < %', 30],
+      shortThr: ['Шорт при ATR > %', 70],
+      minVol: ['Объём для торговли > млн $', 30],
+      showVolume: ['Показать объём', 'да', ['да', 'нет']],
+      font: ['Увеличение шрифта', '0', ['0', '1', '2', '3']],
+    },
+    color: '#5b8def',
+    lines: [],
+  },
   sma: {
     name: 'SMA', title: 'Простая скользящая средняя', overlay: true,
     params: { length: ['Период', 20] }, color: '#ff9800',
@@ -208,7 +225,7 @@ export const INDICATORS = {
   },
 }
 
-export const INDICATOR_ORDER = ['ema', 'sma', 'wma', 'bb', 'vwap', 'rsi', 'macd', 'stoch', 'atr']
+export const INDICATOR_ORDER = ['ta', 'ema', 'sma', 'wma', 'bb', 'vwap', 'rsi', 'macd', 'stoch', 'atr']
 
 /** Новый индикатор с настройками по умолчанию */
 export function newIndicator(type) {
@@ -221,6 +238,7 @@ export function newIndicator(type) {
 /** Подпись индикатора: «EMA 20», «MACD 12 26 9» */
 export function indicatorLabel(ind) {
   const def = INDICATORS[ind.type]
+  if (def.table) return def.name
   const values = Object.values(ind.params)
   return values.length ? `${def.name} ${values.join(' ')}` : def.name
 }

@@ -20,6 +20,7 @@
 - `src/snapshot.js` — снимки графиков в высоком разрешении
 - `src/drawings.js` — рисование: линии, лучи, прямоугольник, Фибоначчи
 - `src/indicators.js` — формулы индикаторов (EMA, SMA, RSI, MACD…)
+- `src/traderAssistant.js` — индикатор Trader Assistant (таблица по дневному ATR)
 - `src/indicatorsDialog.js` — окно «Индикаторы»
 - `src/watchlist.js` — список монет справа с живыми ценами
 - `src/alerts.js` — оповещения о цене: проверка, звук, уведомления, список

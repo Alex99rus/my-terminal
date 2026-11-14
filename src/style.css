@@ -746,3 +746,21 @@ body.resizing-h, body.resizing-h * { cursor: row-resize !important; user-select:
 .sm-preview { margin-top: 14px; padding: 8px 10px; border-radius: 6px; background: #ff980014; color: #ff9800; font-size: 13px; }
 .sm-create { width: 100%; margin-top: 12px; padding: 9px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 .sm-create:hover { filter: brightness(1.1); }
+
+/* ---------- Таблица Trader Assistant ---------- */
+.ta-table {
+  position: absolute;
+  left: 50px; /* не закрываем значок библиотеки графиков в углу */
+  z-index: 3;
+  pointer-events: none;
+  background: rgba(22, 26, 34, 0.88);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 4px;
+  font-variant-numeric: tabular-nums;
+}
+.ta-table table { border-collapse: collapse; }
+.ta-table td { padding: 1px 6px; text-align: right; white-space: nowrap; }
+.ta-table tr.head td { font-size: 0.9em; }
+.ta-table tr.big td { font-weight: 600; font-size: 1.08em; }
+.ta-wait { color: var(--muted); font-size: 12px; padding: 4px; }
