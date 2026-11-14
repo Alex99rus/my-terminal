@@ -814,7 +814,7 @@ export class DrawingController {
 
   // Магнит работает, когда он включён (или зажата Ctrl) и мы рисуем или тянем точку рисунка
   get magnetActive() {
-    return (settings.magnet || draw.ctrl) && (draw.tool !== 'cursor' || this.mode === 'place' || this.mode === 'measure' || (this.dragInfo && this.dragInfo.part !== 'body'))
+    return (settings.magnet || draw.ctrl) && (draw.tool !== 'cursor' || this.mode === 'place' || this.mode === 'measure' || this.mode === 'paper' || (this.dragInfo && this.dragInfo.part !== 'body'))
   }
 
   // Перекрестие «прилипает» к ценам свечи: открытие, максимум, минимум, закрытие
@@ -948,6 +948,15 @@ export class DrawingController {
       return
     }
 
+    // линия демо-счёта (стоп, тейк, ордер) — тянем её
+    const ph = this.pane.paperHit?.(x, y)
+    if (ph) {
+      this.mode = 'paper'
+      this.paperDrag = { item: ph, price: ph.priceLine.options().price }
+      this.grab(e)
+      return
+    }
+
     // курсор: щёлкнули по рисунку — выделяем и начинаем тянуть
     const list = settings.hidden ? draw.list(this.key).filter((d) => d.type === 'alert') : draw.list(this.key)
     const hit = hitTest(list, this.a, x, y)
@@ -982,6 +991,14 @@ export class DrawingController {
       this.applyDrag(x, y, e)
       return
     }
+    if (this.mode === 'paper') {
+      const p = this.point(x, y, e)
+      if (p) {
+        this.paperDrag.price = p.price
+        this.paperDrag.item.priceLine.applyOptions({ price: p.price })
+      }
+      return
+    }
     // подсказка курсором: над рисунком — «рука» или «перемещение»
     let cls = ''
     if (draw.tool !== 'cursor') cls = 'cursor-draw'
@@ -989,16 +1006,22 @@ export class DrawingController {
       const list = settings.hidden ? draw.list(this.key).filter((d) => d.type === 'alert') : draw.list(this.key)
       const hit = hitTest(list, this.a, x, y)
       if (hit) cls = hit.part === 'body' ? 'cursor-move' : 'cursor-point'
+      else if (this.pane.paperHit?.(x, y)) cls = 'cursor-row'
     }
     if (cls !== this.cursorCls) {
-      this.el.classList.remove('cursor-draw', 'cursor-move', 'cursor-point')
+      this.el.classList.remove('cursor-draw', 'cursor-move', 'cursor-point', 'cursor-row')
       if (cls) this.el.classList.add(cls)
       this.cursorCls = cls
     }
   }
 
   up(e) {
-    if (this.mode === 'measure') {
+    if (this.mode === 'paper') {
+      const { item, price } = this.paperDrag
+      this.mode = null
+      this.paperDrag = null
+      item.line.drag(price) // сохранить новую цену стопа / тейка / ордера
+    } else if (this.mode === 'measure') {
       const { x, y } = this.local(e)
       if (Math.hypot(x - this.placeStart.x, y - this.placeStart.y) > 6) this.finishMeasure(x, y, e)
     } else if (this.mode === 'place') {

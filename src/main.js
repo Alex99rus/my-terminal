@@ -9,6 +9,8 @@ import { initWatchlist } from './watchlist.js'
 import { initAlerts } from './alerts.js'
 import { MARKETS, marketOptions } from './markets.js'
 import { openChartSettings, onStyleChange } from './chartSettings.js'
+import { paper } from './paper.js'
+import { initPaperUI } from './paperUI.js'
 import './style.css'
 
 // ---------- Раскладки ----------
@@ -76,6 +78,7 @@ const hooks = {
   onPrice(pane, price) {
     if (pane === activePane) showLastPrice(price, pane.decimals)
     alerts?.check(pane.key, price) // самая свежая цена — сразу проверяем оповещения
+    paper.onPrice(pane.key, price) // и демо-счёт: ордера, стопы, тейки
   },
 
   onIntervalChange() {
@@ -439,6 +442,20 @@ alerts = initAlerts({
   getPanes: () => panes,
   getActivePane: () => activePane,
   onOpen: (symbol, market) => openSymbol(symbol, market),
+})
+
+// ---------- Демо-счёт ----------
+paper.init({ onNotify: (text) => toast(text) })
+initPaperUI({
+  getActive: () =>
+    activePane && {
+      key: activePane.key,
+      symbol: activePane.symbol,
+      market: activePane.market,
+      price: paper.price(activePane.key) ?? activePane.bars.at(-1)?.close,
+    },
+  onOpen: (symbol, market) => openSymbol(symbol, market),
+  toast: (text) => toast(text),
 })
 
 // ---------- Рисование ----------

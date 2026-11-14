@@ -1,5 +1,6 @@
 // Панель инструментов рисования (слева) и панель настроек выделенного рисунка (сверху).
 import { draw, TOOLS, COLORS, TEXT_SIZES, ALERTABLE } from './drawings.js'
+import { paper, fmtQty, fmtPrice } from './paper.js'
 
 // Значки — маленькие картинки SVG, нарисованные линиями
 const svg = (inner) =>
@@ -90,6 +91,7 @@ export function initToolbar({ getActiveKey, getPanes }) {
     <span class="sizes">${TEXT_SIZES.map((sz) => `<button class="size" data-size="${sz}" title="Размер ${sz}" style="font-size:${Math.min(sz, 18)}px">A</button>`).join('')}</span>
     <label class="risk" title="Сколько долларов вы готовы потерять, если сработает стоп">Риск $ <input type="number" min="1" step="1"></label>
     <button class="flip" title="Перевернуть: лонг ⇄ шорт">⇅</button>
+    <button class="to-paper" title="Выставить эту позицию на демо-счёт: ордер на вход, стоп и тейк">▶ В демо</button>
     <span class="dp-sep s4"></span>
     <span class="bell-wrap">
       <button class="bell" title="Оповещение на этой линии">${ICONS.alert}</button>
@@ -141,6 +143,26 @@ export function initToolbar({ getActiveKey, getPanes }) {
       draw.update(sel.key, sel.id, { alert: { active: true, mode: b.dataset.mode, tf: b.dataset.tf || null, created: Date.now() } })
       hint(b.dataset.mode === 'cross' ? '🔔 Оповещение: когда цена пересечёт линию' : `🔔 Оповещение: когда свеча ${b.textContent.replace('закрытие ', '')} закроется по другую сторону линии`)
     }
+  }
+
+  // ▶ В демо: позиция с графика → ордер на демо-счёте (вход, стоп, тейк, объём по риску)
+  props.querySelector('.to-paper').onclick = () => {
+    const sel = draw.selected
+    const d = draw.selectedDrawing()
+    if (!d?.entry) return
+    const last = paper.price(sel.key)
+    if (!last) return hint('⚠️ Нет текущей цены этой монеты — откройте её в окне графика')
+    const long = d.type === 'long'
+    const entry = d.entry.price
+    const qty = +(draw.settings.risk / Math.abs(entry - d.stop)).toPrecision(6)
+    // вход почти по текущей цене — по рынку; ниже/выше — лимитом или стопом
+    let type = 'market'
+    if (Math.abs(entry - last) / last > 0.0005) type = (long ? entry < last : entry > last) ? 'limit' : 'stop'
+    const err = paper.placeOrder({ key: sel.key, side: long ? 'buy' : 'sell', type, qty, price: entry, sl: d.stop, tp: d.target })
+    if (err) return hint('⚠️ ' + err)
+    hint(type === 'market'
+      ? `💼 Открыт ${long ? 'лонг' : 'шорт'} ${fmtQty(qty)} по рынку со стопом и тейком`
+      : `💼 Выставлен ${type === 'limit' ? 'лимитный' : 'стоп'} ордер ${fmtQty(qty)} по ${fmtPrice(entry)} со стопом и тейком`)
   }
 
   // лонг ⇄ шорт: стоп и цель меняются местами

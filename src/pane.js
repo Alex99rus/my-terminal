@@ -12,6 +12,7 @@ import { TATable } from './traderAssistant.js'
 import { DayLinesPrimitive } from './dayLines.js'
 import { tickMarkFormatter, crosshairTime } from './localTime.js'
 import { style, withAlpha, LINE_STYLE } from './chartSettings.js'
+import { paper } from './paper.js'
 
 // Интервалы: подпись → код у Binance → длина в секундах
 export const INTERVALS = [
@@ -113,6 +114,10 @@ export class Pane {
     this.resizeObs = new ResizeObserver(() => this.refreshLegend())
     this.resizeObs.observe(this.chartEl)
     this.offDraw = draw.subscribe(() => this.drawPrim?.requestUpdate()) // рисунки изменились — перерисовать
+    // демо-счёт: позиции и ордера — линиями на графике
+    this.paperLines = new Map() // id → { line, priceLine }
+    this.offPaper = paper.subscribe((kind) => (kind === 'change' ? this.syncPaperLines() : this.schedulePaperTitles()))
+    this.syncPaperLines()
     this.load()
   }
 
@@ -261,6 +266,55 @@ export class Pane {
     // границы дня на таймфреймах до 1ч
     this.candles.attachPrimitive(new DayLinesPrimitive(this.chart, () => this.bars, () => this.intervalSec))
     if (this.bars.length) this.candles.setData(this.bars.map(this.toPoint))
+    this.paperLines?.clear() // старые линии были на старой серии
+    this.syncPaperLines?.()
+  }
+
+  // ---------- Демо-счёт на графике ----------
+
+  // Линии позиции (вход, стоп, тейк) и ордеров этой монеты — создать заново
+  syncPaperLines() {
+    if (!this.candles || !this.paperLines) return
+    for (const { priceLine } of this.paperLines.values()) {
+      try {
+        this.candles.removePriceLine(priceLine)
+      } catch {}
+    }
+    this.paperLines.clear()
+    for (const line of paper.lines(this.key)) {
+      const priceLine = this.candles.createPriceLine({
+        price: line.price,
+        color: line.color,
+        lineWidth: line.id === 'entry' ? 2 : 1,
+        lineStyle: line.id === 'entry' ? 0 : 2,
+        axisLabelVisible: true,
+        title: line.title,
+      })
+      this.paperLines.set(line.id, { line, priceLine })
+    }
+  }
+
+  // Прибыль на линии входа меняется с ценой — обновляем подпись (не чаще 4 раз в секунду)
+  schedulePaperTitles() {
+    if (this.paperTimer) return
+    this.paperTimer = setTimeout(() => {
+      this.paperTimer = 0
+      const entry = this.paperLines.get('entry')
+      if (!entry) return
+      const fresh = paper.lines(this.key).find((l) => l.id === 'entry')
+      if (fresh) entry.priceLine.applyOptions({ title: fresh.title, color: fresh.color })
+    }, 250)
+  }
+
+  // Линия демо-счёта под мышью (стоп, тейк или ордер — их можно тянуть)
+  paperHit(x, y) {
+    if (x > this.chart.timeScale().width()) return null
+    for (const item of this.paperLines.values()) {
+      if (!item.line.drag) continue
+      const ly = this.candles.priceToCoordinate(item.priceLine.options().price)
+      if (ly != null && Math.abs(ly - y) <= 5) return item
+    }
+    return null
   }
 
   // Часть настроек графика, которая зависит от «Настроек графика»
@@ -563,6 +617,7 @@ export class Pane {
     if (symbol === this.symbol && market === this.market) return
     this.symbol = symbol
     this.market = market
+    this.syncPaperLines()
     this.load()
   }
   setInterval(code) {
@@ -684,6 +739,8 @@ export class Pane {
     this.resizeObs.disconnect()
     for (const t of this.taTables) t.destroy()
     this.offDraw()
+    this.offPaper()
+    clearTimeout(this.paperTimer)
     this.drawCtl.destroy()
     this.unsubscribe?.()
     this.chart.remove()
