@@ -1,6 +1,7 @@
 // Вертикальные линии на границах периодов:
 //  • на 1м … 1ч — границы дня
 //  • на 4ч — границы недели
+//  • на 1Д — границы месяца
 // Как у бирж: по UTC (00:00 UTC = 03:00 по Москве), неделя — с понедельника, там же,
 // где начинаются дневная и недельная свечи.
 
@@ -13,6 +14,13 @@ const MONDAY = 4 * DAY // 1 января 1970 — четверг, первый �
 function periodOf(sec) {
   if (sec <= 3600) return (t) => Math.floor(t / DAY)
   if (sec === 14400) return (t) => Math.floor((t - MONDAY) / WEEK)
+  if (sec === DAY) {
+    // месяц по UTC: год × 12 + номер месяца
+    return (t) => {
+      const d = new Date(t * 1000)
+      return d.getUTCFullYear() * 12 + d.getUTCMonth()
+    }
+  }
   return null
 }
 
