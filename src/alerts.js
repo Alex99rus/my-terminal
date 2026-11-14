@@ -5,8 +5,9 @@
 //  • следит за ценами всех монет, на которых есть оповещения (даже не открытых на графике);
 //  • когда цена дошла до уровня — показывает окошко, играет звук, шлёт уведомление браузера;
 //  • рисует список оповещений по кнопке 🔔 вверху.
-import { draw, makeAlert, ALERT_COLOR, ALERT_DONE_COLOR } from './drawings.js'
+import { draw, makeAlert, ALERT_COLOR, ALERT_DONE_COLOR, drawingLevels, DRAWING_NAMES } from './drawings.js'
 import { subscribeTickers } from './binance.js'
+import { smart, describe, openSmartDialog, initSmartAlerts } from './smartAlerts.js'
 
 function decimalsFor(price) {
   if (price >= 1000) return 2
@@ -20,12 +21,19 @@ const splitKey = (key) => {
   return { market, symbol }
 }
 
-// Все оповещения: [{ key, d }]
+// Все оповещения о цене: [{ key, d }]
 function allAlerts() {
   const out = []
   for (const key of draw.keys()) for (const d of draw.list(key)) if (d.type === 'alert') out.push({ key, d })
   return out
 }
+// Рисунки, на которых стоит оповещение: [{ key, d }]
+function drawingAlerts() {
+  const out = []
+  for (const key of draw.keys()) for (const d of draw.list(key)) if (d.alert) out.push({ key, d })
+  return out
+}
+const TF_NAMES = { '15m': '15м', '1h': '1ч', '4h': '4ч', '1d': '1Д' }
 
 /**
  * getPanes() — окна графиков; getActivePane() — активное окно
@@ -33,26 +41,54 @@ function allAlerts() {
  */
 export function initAlerts({ getPanes, getActivePane, onOpen }) {
   // ---------- Проверка цены ----------
-  function check(key, price) {
+  const lastPrice = new Map() // монета → предыдущая цена (чтобы заметить пересечение линии)
+  const liveAt = new Map() // монета → когда последний раз пришла цена из открытого окна
+
+  // source: 'live' — цена из окна графика (по каждой сделке), 'ticker' — раз в секунду
+  function check(key, price, source = 'live') {
+    // если монета открыта в окне — её цена свежее, а секундная может отставать:
+    // смешивать их нельзя, иначе у самой линии можно поймать ложное «пересечение»
+    if (source === 'live') liveAt.set(key, Date.now())
+    else if (Date.now() - (liveAt.get(key) || 0) < 5000) return
+    const prev = lastPrice.get(key)
+    lastPrice.set(key, price)
+    const now = Date.now() / 1000
     for (const d of draw.list(key)) {
-      if (d.type !== 'alert' || !d.active) continue
-      if ((d.dir === 'up' && price >= d.price) || (d.dir === 'down' && price <= d.price)) trigger(key, d, price)
+      // оповещение о цене
+      if (d.type === 'alert' && d.active) {
+        if ((d.dir === 'up' && price >= d.price) || (d.dir === 'down' && price <= d.price)) trigger(key, d, price)
+      }
+      // оповещение на рисунке: цена пересекла линию (между прошлой и новой ценой)
+      if (d.alert?.active && d.alert.mode === 'cross' && prev != null && prev !== price) {
+        for (const level of drawingLevels(d, now)) {
+          if ((prev - level) * (price - level) <= 0) {
+            draw.update(key, d.id, { alert: { ...d.alert, active: false, triggeredAt: Date.now() } })
+            const { symbol, market } = splitKey(key)
+            notify(`${symbol} ${price > prev ? 'пересёк вверх' : 'пересёк вниз'}: ${DRAWING_NAMES[d.type]} (${fmt(level)})`, symbol, market)
+            break
+          }
+        }
+      }
     }
   }
 
   function trigger(key, d, price) {
     draw.update(key, d.id, { active: false, color: ALERT_DONE_COLOR, triggeredAt: Date.now(), triggerPrice: price })
     const { symbol, market } = splitKey(key)
-    const text = `${symbol} ${d.dir === 'up' ? 'вырос до' : 'упал до'} ${fmt(d.price)}`
+    notify(`${symbol} ${d.dir === 'up' ? 'вырос до' : 'упал до'} ${fmt(d.price)}`, symbol, market)
+  }
+
+  // Общий сигнал для всех видов оповещений: окошко, звук, вибрация, уведомление, заголовок
+  function notify(text, symbol, market) {
     popup(text, symbol, market)
     beep()
-    navigator.vibrate?.([200, 100, 200])
+    if (navigator.userActivation?.hasBeenActive) navigator.vibrate?.([200, 100, 200])
     if (window.Notification?.permission === 'granted') {
       try {
-        new Notification('🔔 Оповещение', { body: text + ` (цена ${fmt(price)})`, tag: d.id })
+        new Notification('🔔 Оповещение', { body: text })
       } catch {}
     }
-    flashTitle(`🔔 ${symbol} ${fmt(d.price)}`)
+    flashTitle(`🔔 ${text}`)
   }
 
   // Цены монет с оповещениями — раз в секунду, даже если монета не открыта на графике
@@ -60,8 +96,8 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
   let subsKey = ''
   function resubscribe() {
     const byMarket = {}
-    for (const { key, d } of allAlerts()) {
-      if (!d.active) continue
+    for (const { key, d } of [...allAlerts(), ...drawingAlerts()]) {
+      if (d.type === 'alert' ? !d.active : !(d.alert.active && d.alert.mode === 'cross')) continue
       const { market, symbol } = splitKey(key)
       ;(byMarket[market] ||= new Set()).add(symbol)
     }
@@ -70,7 +106,7 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
     subsKey = sig
     for (const off of subs) off()
     subs = Object.entries(byMarket).map(([market, symbols]) =>
-      subscribeTickers(market, [...symbols], (t) => check(`${market}:${t.symbol}`, t.last)),
+      subscribeTickers(market, [...symbols], (t) => check(`${market}:${t.symbol}`, t.last, 'ticker')),
     )
   }
 
@@ -167,39 +203,88 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
   })
 
   function renderMenu() {
-    const all = allAlerts().sort((a, b) => b.d.active - a.d.active || (b.d.triggeredAt || b.d.created || 0) - (a.d.triggeredAt || a.d.created || 0))
-    const active = all.filter((a) => a.d.active).length
+    const time = (ms) => new Date(ms).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    const tag = (market) => `<em>${market === 'futures' ? 'фьюч' : 'спот'}</em>`
+    const status = (active, at) => (active ? 'ждёт' : at ? 'сработало ' + time(at) : 'выкл.')
+    // все три вида в одном списке: [{ html, active, at }]
+    const rows = []
+    for (const { key, d } of allAlerts()) {
+      const { symbol, market } = splitKey(key)
+      rows.push({
+        active: d.active, at: d.triggeredAt || d.created,
+        html: `<div class="al-row ${d.active ? '' : 'done'}" data-kind="price" data-key="${key}" data-id="${d.id}">
+          <span class="al-sym">${symbol}${tag(market)}</span>
+          <span class="al-desc">${d.dir === 'up' ? '▲' : '▼'} ${fmt(d.price)}</span>
+          <span class="al-status">${status(d.active, d.triggeredAt)}</span>
+          ${d.active ? '<i></i>' : '<button class="al-restart" title="Запустить снова">↻</button>'}
+          <button class="al-del" title="Удалить">✕</button></div>`,
+      })
+    }
+    for (const { key, d } of drawingAlerts()) {
+      const { symbol, market } = splitKey(key)
+      const how = d.alert.mode === 'close' ? `закрытие ${TF_NAMES[d.alert.tf] || d.alert.tf}` : 'пересечение'
+      rows.push({
+        active: d.alert.active, at: d.alert.triggeredAt || d.alert.created,
+        html: `<div class="al-row ${d.alert.active ? '' : 'done'}" data-kind="drawing" data-key="${key}" data-id="${d.id}">
+          <span class="al-sym">${symbol}${tag(market)}</span>
+          <span class="al-desc">✏️ ${DRAWING_NAMES[d.type]}, ${how}</span>
+          <span class="al-status">${status(d.alert.active, d.alert.triggeredAt)}</span>
+          ${d.alert.active ? '<i></i>' : '<button class="al-restart" title="Запустить снова">↻</button>'}
+          <button class="al-del" title="Снять оповещение с рисунка">✕</button></div>`,
+      })
+    }
+    for (const a of smart.list()) {
+      rows.push({
+        active: a.active, at: a.triggeredAt || a.created,
+        html: `<div class="al-row ${a.active ? '' : 'done'}" data-kind="smart" data-key="${a.market}:${a.symbol}" data-id="${a.id}">
+          <span class="al-sym">${a.symbol}${tag(a.market)}</span>
+          <span class="al-desc">🧠 ${describe(a)}${a.repeat === 'every' ? ' ↺' : ''}</span>
+          <span class="al-status">${status(a.active, a.triggeredAt)}</span>
+          ${a.active ? '<i></i>' : '<button class="al-restart" title="Запустить снова">↻</button>'}
+          <button class="al-del" title="Удалить">✕</button></div>`,
+      })
+    }
+    const active = rows.filter((r) => r.active).length
     btn.querySelector('.count').textContent = active || ''
     btn.classList.toggle('active', active > 0)
     if (!menu.classList.contains('open')) return
-    if (!all.length) {
-      menu.innerHTML = `<div class="al-empty">Оповещений нет.<br>Выберите 🔔 на панели слева и щёлкните по графику на нужной цене — или нажмите <b>Alt+A</b>, наведя мышь на цену.</div>`
-      return
-    }
-    const time = (ms) => new Date(ms).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-    menu.innerHTML =
-      all
-        .map(({ key, d }) => {
-          const { symbol, market } = splitKey(key)
-          return `<div class="al-row ${d.active ? '' : 'done'}" data-key="${key}" data-id="${d.id}">
-            <span class="al-sym">${symbol}<em>${market === 'futures' ? 'фьюч' : 'спот'}</em></span>
-            <span class="al-price">${d.dir === 'up' ? '▲' : '▼'} ${fmt(d.price)}</span>
-            <span class="al-status">${d.active ? 'ждёт' : 'сработало ' + time(d.triggeredAt)}</span>
-            ${d.active ? '' : '<button class="al-restart" title="Запустить снова">↻</button>'}
-            <button class="al-del" title="Удалить">✕</button>
-          </div>`
-        })
-        .join('') + (all.some((a) => !a.d.active) ? '<button class="al-clear">Удалить сработавшие</button>' : '')
+    rows.sort((x, y) => y.active - x.active || (y.at || 0) - (x.at || 0))
 
+    menu.innerHTML =
+      `<button class="al-smart">＋ Умное оповещение</button>` +
+      (rows.length
+        ? rows.map((r) => r.html).join('')
+        : `<div class="al-empty">Оповещений нет.<br>
+            • <b>о цене</b> — 🔔 на панели слева и щелчок по графику, или <b>Alt+A</b>;<br>
+            • <b>на линии</b> — выделите линию и нажмите 🔔 в панели сверху;<br>
+            • <b>по индикаторам и движению цены</b> — кнопка «Умное оповещение».</div>`) +
+      (rows.some((r) => !r.active) ? '<button class="al-clear">Удалить сработавшие</button>' : '')
+
+    menu.querySelector('.al-smart').onclick = () => {
+      menu.classList.remove('open')
+      const p = getActivePane()
+      openSmartDialog({ symbol: p?.symbol || 'BTCUSDT', market: p?.market || 'futures', price: p?.bars.at(-1)?.close || 0 })
+    }
     for (const row of menu.querySelectorAll('.al-row')) {
-      const { key, id } = row.dataset
+      const { key, id, kind } = row.dataset
       row.onclick = (e) => {
-        if (e.target.closest('.al-del')) return draw.remove(key, id)
-        if (e.target.closest('.al-restart')) {
-          const pane = getPanes().find((p) => p.key === key)
+        const del = e.target.closest('.al-del')
+        const restart = e.target.closest('.al-restart')
+        if (kind === 'smart') {
+          if (del) return smart.remove(id)
+          if (restart) return smart.restart(id)
+        } else if (kind === 'drawing') {
           const d = draw.find(key, id)
-          const last = pane?.bars.at(-1)?.close
-          return draw.update(key, id, { active: true, color: ALERT_COLOR, triggeredAt: null, dir: last != null && d.price < last ? 'down' : d.dir })
+          if (del) return draw.update(key, id, { alert: null })
+          if (restart) return draw.update(key, id, { alert: { ...d.alert, active: true, triggeredAt: null, created: Date.now() } })
+        } else {
+          if (del) return draw.remove(key, id)
+          if (restart) {
+            const pane = getPanes().find((p) => p.key === key)
+            const d = draw.find(key, id)
+            const last = pane?.bars.at(-1)?.close
+            return draw.update(key, id, { active: true, color: ALERT_COLOR, triggeredAt: null, dir: last != null && d.price < last ? 'down' : d.dir })
+          }
         }
         const { symbol, market } = splitKey(key)
         onOpen(symbol, market)
@@ -208,6 +293,8 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
     }
     menu.querySelector('.al-clear')?.addEventListener('click', () => {
       for (const { key, d } of allAlerts()) if (!d.active) draw.remove(key, d.id)
+      for (const { key, d } of drawingAlerts()) if (!d.alert.active) draw.update(key, d.id, { alert: null })
+      for (const a of [...smart.list()]) if (!a.active) smart.remove(a.id)
     })
   }
 
@@ -217,6 +304,8 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
     resubscribe()
     renderMenu()
   })
+  smart.subscribe(renderMenu)
+  initSmartAlerts({ onNotify: notify })
   resubscribe()
   renderMenu()
 

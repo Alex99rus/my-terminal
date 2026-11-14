@@ -646,8 +646,9 @@ body.resizing-h, body.resizing-h * { cursor: row-resize !important; user-select:
   right: 0;
   top: calc(100% + 6px);
   z-index: 20;
-  width: 430px;
-  max-height: 60vh;
+  width: 520px;
+  max-width: 96vw;
+  max-height: 70vh;
   overflow-y: auto;
   padding: 6px;
   background: var(--panel);
@@ -659,7 +660,7 @@ body.resizing-h, body.resizing-h * { cursor: row-resize !important; user-select:
 .al-empty { color: var(--muted); padding: 10px; line-height: 1.6; font-size: 13px; }
 .al-row {
   display: grid;
-  grid-template-columns: 1fr auto auto 24px 24px;
+  grid-template-columns: auto 1fr auto 24px 24px;
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
@@ -672,13 +673,15 @@ body.resizing-h, body.resizing-h * { cursor: row-resize !important; user-select:
 .al-row span { white-space: nowrap; }
 .al-sym { font-weight: 600; }
 .al-sym em { font-style: normal; font-weight: 400; font-size: 10px; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; padding: 0 3px; margin-left: 5px; }
-.al-price { color: #ff9800; }
-.al-row.done .al-price { color: var(--muted); }
+.al-row span.al-desc { color: #ff9800; white-space: normal; font-size: 13px; line-height: 1.3; }
+.al-row.done .al-desc { color: var(--muted); }
+.al-smart { width: 100%; margin-bottom: 6px; padding: 7px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.al-smart:hover { filter: brightness(1.1); }
 .al-status { color: var(--muted); font-size: 12px; }
 .al-row button { background: none; border: none; color: var(--muted); cursor: pointer; border-radius: 4px; padding: 2px; }
 .al-row button:hover { color: var(--text); background: var(--bg); }
 .al-row .al-del:hover { color: var(--down); }
-.al-row:not(.done) .al-del { grid-column: 5; }
+
 .al-clear { width: 100%; margin-top: 6px; padding: 6px; background: none; border: 1px solid var(--border); border-radius: 5px; color: var(--muted); font: inherit; cursor: pointer; }
 .al-clear:hover { color: var(--text); background: var(--border); }
 
@@ -700,3 +703,45 @@ body.resizing-h, body.resizing-h * { cursor: row-resize !important; user-select:
 .alert-pop button { padding: 5px 12px; border-radius: 5px; border: 1px solid var(--border); background: none; color: var(--text); font: inherit; cursor: pointer; }
 .alert-pop button.ok { background: var(--accent); border-color: var(--accent); color: #fff; }
 @keyframes popIn { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* 🔔 на выделенной линии */
+.draw-props .bell-wrap { display: none; position: relative; }
+.draw-props[data-alertable="1"] .bell-wrap { display: block; }
+.draw-props .bell.active { color: #ff9800; border-color: #ff980088; }
+.bell-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: -40px;
+  z-index: 30;
+  width: 270px;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #0008;
+}
+.bell-menu.open { display: block; }
+.bell-menu button { display: block; width: 100%; height: auto; text-align: left; padding: 6px 10px; color: var(--text); border-radius: 5px; }
+.bell-menu button.current { background: #ff980026; color: #ff9800; }
+.bell-menu .bm-off { color: var(--muted); }
+.bm-title { color: var(--muted); font-size: 12px; padding: 6px 10px 2px; }
+
+/* Окно «Умное оповещение» */
+.sm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; margin-top: 12px; }
+.sm-grid label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
+.sm-wide { grid-column: 1 / -1; }
+.sm-grid input, .sm-grid select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 14px;
+}
+.sm-grid .sm-symbol { text-transform: uppercase; }
+.sm-params { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px 12px; }
+.sm-preview { margin-top: 14px; padding: 8px 10px; border-radius: 6px; background: #ff980014; color: #ff9800; font-size: 13px; }
+.sm-create { width: 100%; margin-top: 12px; padding: 9px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.sm-create:hover { filter: brightness(1.1); }

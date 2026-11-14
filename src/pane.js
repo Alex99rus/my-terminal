@@ -310,7 +310,7 @@ export class Pane {
   // Пересчитать индикаторы. from — с какой свечи изменились данные (0 — всё заново)
   updateIndicators(from) {
     const bars = this.bars
-    const partial = from > 0 && from >= bars.length - 2
+    const partial = from > 0 && from >= bars.length - 1
     for (const e of this.indSeries) {
       const res = e.def.calc(bars, e.ind.params)
       for (const l of e.lines) {
@@ -466,8 +466,9 @@ export class Pane {
     const from = this.dirtyFrom
     this.dirtyFrom = -1
     if (from < 0 || !this.bars.length) return
-    if (from < this.bars.length - 2) {
-      // поменялась старая свеча — проще перерисовать всё
+    if (from < this.bars.length - 1) {
+      // поменялась не последняя свеча (например, биржа прислала итог уже закрытой) —
+      // библиотека умеет обновлять только последнюю, поэтому перерисовываем всё
       this.candles.setData(this.bars.map(this.toPoint))
       this.volume.setData(this.bars.map(volumeBar))
       this.updateIndicators(0)

@@ -1,5 +1,5 @@
 // Панель инструментов рисования (слева) и панель настроек выделенного рисунка (сверху).
-import { draw, TOOLS, COLORS, TEXT_SIZES } from './drawings.js'
+import { draw, TOOLS, COLORS, TEXT_SIZES, ALERTABLE } from './drawings.js'
 
 // Значки — маленькие картинки SVG, нарисованные линиями
 const svg = (inner) =>
@@ -81,6 +81,19 @@ export function initToolbar({ getActiveKey, getPanes }) {
     <label class="risk" title="Сколько долларов вы готовы потерять, если сработает стоп">Риск $ <input type="number" min="1" step="1"></label>
     <button class="flip" title="Перевернуть: лонг ⇄ шорт">⇅</button>
     <span class="dp-sep s4"></span>
+    <span class="bell-wrap">
+      <button class="bell" title="Оповещение на этой линии">${ICONS.alert}</button>
+      <div class="bell-menu">
+        <div class="bm-title">Оповещение, когда цена…</div>
+        <button data-mode="cross">пересечёт линию (сразу)</button>
+        <div class="bm-title">…или свеча закроется по другую сторону линии</div>
+        <button data-mode="close" data-tf="15m">закрытие 15м</button>
+        <button data-mode="close" data-tf="1h">закрытие 1ч</button>
+        <button data-mode="close" data-tf="4h">закрытие 4ч</button>
+        <button data-mode="close" data-tf="1d">закрытие 1Д</button>
+        <button data-mode="off" class="bm-off">выключить оповещение</button>
+      </div>
+    </span>
     <button class="delete" title="Удалить (Delete)">${ICONS.trash}</button>`
 
   // меняем выделенный рисунок и запоминаем как стиль для следующих
@@ -105,6 +118,21 @@ export function initToolbar({ getActiveKey, getPanes }) {
     if (v > 0) draw.setSetting('risk', v)
   }
   riskInput.addEventListener('keydown', (e) => e.stopPropagation())
+  // 🔔 оповещение на линии: при пересечении или на закрытии свечи
+  const bellMenu = props.querySelector('.bell-menu')
+  props.querySelector('.bell').onclick = () => bellMenu.classList.toggle('open')
+  for (const b of bellMenu.querySelectorAll('button')) {
+    b.onclick = () => {
+      const sel = draw.selected
+      if (!sel) return
+      bellMenu.classList.remove('open')
+      if (b.dataset.mode === 'off') return draw.update(sel.key, sel.id, { alert: null })
+      if (window.Notification?.permission === 'default') Notification.requestPermission()
+      draw.update(sel.key, sel.id, { alert: { active: true, mode: b.dataset.mode, tf: b.dataset.tf || null, created: Date.now() } })
+      hint(b.dataset.mode === 'cross' ? '🔔 Оповещение: когда цена пересечёт линию' : `🔔 Оповещение: когда свеча ${b.textContent.replace('закрытие ', '')} закроется по другую сторону линии`)
+    }
+  }
+
   // лонг ⇄ шорт: стоп и цель меняются местами
   props.querySelector('.flip').onclick = () => {
     const sel = draw.selected
@@ -134,12 +162,20 @@ export function initToolbar({ getActiveKey, getPanes }) {
 
     const d = draw.selectedDrawing()
     props.classList.toggle('show', !!d)
+    if (!d) bellMenu.classList.remove('open')
     if (d) {
       // для разных рисунков — разные настройки
       const isPos = d.type === 'long' || d.type === 'short'
       const isText = d.type === 'text'
       const isAlert = d.type === 'alert'
       props.dataset.kind = isPos ? 'position' : isText ? 'text' : isAlert ? 'alert' : 'line'
+      props.dataset.alertable = ALERTABLE.includes(d.type) ? '1' : ''
+      const bell = props.querySelector('.bell')
+      bell.classList.toggle('active', !!d.alert?.active)
+      for (const b of bellMenu.querySelectorAll('button')) {
+        const on = d.alert && b.dataset.mode === d.alert.mode && (b.dataset.tf || null) === (d.alert.tf || null)
+        b.classList.toggle('current', !!on)
+      }
       for (const b of props.querySelectorAll('.size')) b.classList.toggle('active', +b.dataset.size === d.size)
       if (document.activeElement !== riskInput) riskInput.value = draw.settings.risk
       for (const b of props.querySelectorAll('.color')) b.classList.toggle('active', b.dataset.color === d.color)

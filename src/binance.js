@@ -30,8 +30,8 @@ function toBar(row) {
  * Загружает историю свечей (REST-запрос).
  * endTime — если указать, придут свечи ДО этого момента (для подгрузки истории влево).
  */
-export async function loadCandles(market, symbol, interval, endTime) {
-  let url = `${REST[market]}/klines?symbol=${symbol}&interval=${interval}&limit=1000`
+export async function loadCandles(market, symbol, interval, endTime, limit = 1000) {
+  let url = `${REST[market]}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
   if (endTime) url += `&endTime=${endTime * 1000 - 1}`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Биржа ответила ошибкой ${res.status}`)

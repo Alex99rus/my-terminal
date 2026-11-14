@@ -346,6 +346,42 @@ function duration(sec) {
 }
 
 /**
+ * Цены линии рисунка в момент времени t (для оповещений на рисунках).
+ * Наклонная линия тренда — цена на линии именно в это время; у Фибоначчи — все уровни.
+ * Пустой массив — в это время линии нет (например, время за пределами отрезка).
+ */
+export function drawingLevels(d, t) {
+  const along = (p1, p2) => p1.price + ((p2.price - p1.price) * (t - p1.time)) / (p2.time - p1.time || 1)
+  switch (d.type) {
+    case 'hline':
+      return [d.price]
+    case 'hray':
+      return t >= d.time ? [d.price] : []
+    case 'trend': {
+      const [a, b] = d.p1.time <= d.p2.time ? [d.p1, d.p2] : [d.p2, d.p1]
+      return t >= a.time && t <= b.time ? [along(d.p1, d.p2)] : []
+    }
+    case 'ray': {
+      const forward = d.p2.time >= d.p1.time
+      return (forward ? t >= d.p1.time : t <= d.p1.time) ? [along(d.p1, d.p2)] : []
+    }
+    case 'rect': {
+      const t1 = Math.min(d.p1.time, d.p2.time)
+      const t2 = Math.max(d.p1.time, d.p2.time)
+      return t >= t1 && t <= t2 ? [d.p1.price, d.p2.price] : []
+    }
+    case 'fib':
+      return t >= Math.min(d.p1.time, d.p2.time) ? FIB.map(([lv]) => fibPrice(d, lv)) : []
+  }
+  return []
+}
+export const ALERTABLE = ['hline', 'hray', 'trend', 'ray', 'rect', 'fib']
+export const DRAWING_NAMES = {
+  hline: 'горизонтальная линия', hray: 'горизонтальный луч', trend: 'линия тренда',
+  ray: 'луч', rect: 'прямоугольник', fib: 'Фибоначчи',
+}
+
+/**
  * Расчёт позиции: соотношение прибыль/риск (R), объём по риску в долларах и ход сделки
  * по свечам после входа: что раньше коснулось — стоп или цель (если в одной свече оба — считаем стоп).
  */
@@ -506,6 +542,7 @@ export class DrawingsPrimitive {
         }
         ctx.stroke()
       }
+      if (d.alert) this.renderBell(ctx, d, g, width)
       if (selected) {
         ctx.setLineDash([])
         for (const p of g.anchors) {
@@ -519,6 +556,26 @@ export class DrawingsPrimitive {
         }
       }
     }
+    ctx.restore()
+  }
+
+  // Колокольчик у рисунка, на котором стоит оповещение (серый — уже сработало)
+  renderBell(ctx, d, g, width) {
+    const k = this.k
+    let x
+    let y
+    if (d.type === 'hline') [x, y] = [width - 22 * k, g.lines[0][1]]
+    else if (g.anchors.length) {
+      const p = g.anchors.reduce((a, b) => (b.x > a.x ? b : a))
+      ;[x, y] = [p.x + 10 * k, p.y]
+    } else return
+    ctx.save()
+    ctx.setLineDash([])
+    ctx.font = `${13 * k}px sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.globalAlpha = d.alert.active ? 1 : 0.45
+    ctx.fillText('🔔', x, y - 10 * k)
     ctx.restore()
   }
 
