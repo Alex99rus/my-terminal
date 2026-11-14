@@ -123,11 +123,27 @@ export class TATable {
     this.el = document.createElement('div')
     this.el.className = 'ta-table'
     pane.el.append(this.el)
-    this.refresh()
-    this.timer = setInterval(() => this.refresh(), CACHE_MS)
+    this.updateVisibility()
+    this.timer = setInterval(() => this.visible && this.refresh(), CACHE_MS)
+  }
+
+  // Показывать ли таблицу в этом окне (настройка «Где показывать»)
+  get visible() {
+    const where = this.ind.params.where || 'в активном окне'
+    if (where === 'во всех окнах') return true
+    if (where === 'на таймфреймах до 15м') return this.pane.intervalSec <= 900
+    return this.pane.isActive
+  }
+
+  updateVisibility() {
+    const on = this.visible
+    this.el.style.display = on ? '' : 'none'
+    if (on && !this.shown) this.refresh() // стала видна — сразу свежие данные
+    this.shown = on
   }
 
   async refresh() {
+    if (!this.visible) return
     const { market, symbol } = this.pane
     const key = `${market}:${symbol}`
     try {
@@ -151,7 +167,7 @@ export class TATable {
 
   // новая цена — перерисовать, но не чаще 4 раз в секунду
   onPrice() {
-    if (this.pending) return
+    if (this.pending || !this.visible) return
     this.pending = setTimeout(() => {
       this.pending = 0
       this.render()

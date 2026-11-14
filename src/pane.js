@@ -539,6 +539,7 @@ export class Pane {
     if (code === this.interval) return
     this.interval = code
     this.intervalSelect.value = code
+    for (const t of this.taTables) t.updateVisibility()
     this.load()
   }
   get intervalLabel() {
@@ -641,7 +642,9 @@ export class Pane {
     this.statusEl.classList.toggle('show', !!text)
   }
   setActive(on) {
+    this.isActive = on
     this.el.classList.toggle('active', on)
+    for (const t of this.taTables) t.updateVisibility()
   }
 
   destroy() {

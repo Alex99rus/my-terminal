@@ -143,7 +143,7 @@ function drawIndicatorLegend(canvas, pane, scale, copy) {
 
 // Таблица Trader Assistant — в левом нижнем углу панели со свечами, как на экране
 function drawTATable(canvas, pane, scale, copy) {
-  const table = pane.taTables?.[0]
+  const table = pane.taTables?.find((t) => t.visible)
   const rows = table?.rows()
   if (!rows) return
   const ctx = canvas.getContext('2d')
