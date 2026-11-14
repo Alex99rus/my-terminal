@@ -15,6 +15,15 @@ export function fmtLeft(s) {
   return `${p(m)}:${p(sec)}`
 }
 
+// Цвет текста под фон: на светлом фоне — тёмный, на тёмном — белый (как у метки цены)
+function textOn(color) {
+  const m = /^#?([0-9a-f]{6})/i.exec(color || '')
+  if (!m) return '#fff'
+  const n = parseInt(m[1], 16)
+  const lum = 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)
+  return lum > 150 ? '#131722' : '#fff'
+}
+
 export class CountdownPrimitive {
   /** getBars() — свечи, getSec() — длина свечи в секундах, getSeries() — главная серия, isLine() — тип «линия» */
   constructor(getBars, getSec, getSeries, isLine) {
@@ -25,7 +34,7 @@ export class CountdownPrimitive {
     const view = {
       coordinate: () => this.y,
       text: () => this.text,
-      textColor: () => '#fff',
+      textColor: () => textOn(this.color),
       backColor: () => this.color,
       visible: () => this.y != null,
       tickVisible: () => false,
