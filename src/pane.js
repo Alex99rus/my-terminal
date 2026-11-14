@@ -245,7 +245,7 @@ export class Pane {
     }, 0)
     this.candles.priceScale().applyOptions({ scaleMargins: { top: 0.12, bottom: 0.25 } })
     // слой с рисунками живёт на главной серии
-    this.drawPrim = new DrawingsPrimitive(this.adapter, () => this.key)
+    this.drawPrim = new DrawingsPrimitive(this.adapter, () => this.key, true, 1, () => this.drawCtl?.snap)
     this.candles.attachPrimitive(this.drawPrim)
     if (this.bars.length) this.candles.setData(this.bars.map(this.toPoint))
   }
@@ -626,6 +626,7 @@ export class Pane {
     cancelAnimationFrame(this.legendFrame)
     this.resizeObs.disconnect()
     this.offDraw()
+    this.drawCtl.destroy()
     this.unsubscribe?.()
     this.chart.remove()
     this.el.remove()

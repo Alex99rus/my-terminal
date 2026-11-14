@@ -53,6 +53,7 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 
 export const draw = {
   tool: 'cursor',
+  ctrl: false, // зажата Ctrl — магнит включается временно
   selected: null, // { key, id } — выделенный рисунок
   settings,
 
@@ -93,6 +94,11 @@ export const draw = {
   },
   setTool(code) {
     this.tool = code
+    emit()
+  },
+  setCtrl(on) {
+    if (this.ctrl === on) return
+    this.ctrl = on
     emit()
   },
   setSetting(name, value) {
@@ -285,8 +291,9 @@ export function hitTest(list, a, x, y) {
 
 export class DrawingsPrimitive {
   /** adapter — перевод координат, getKey — какая монета в окне, showSelection — рисовать точки выделения */
-  constructor(adapter, getKey, showSelection = true, scale = 1) {
+  constructor(adapter, getKey, showSelection = true, scale = 1, getSnap = null) {
     this.a = adapter
+    this.getSnap = getSnap // точка, к которой сейчас «прилип» магнит (рисуем кружок)
     this.k = scale // для снимков: толщина линий и шрифт крупнее
     this.getKey = getKey
     this.showSelection = showSelection
@@ -340,6 +347,7 @@ export class DrawingsPrimitive {
   }
 
   render(ctx, size) {
+    this.renderSnap(ctx)
     if (settings.hidden) return
     const key = this.getKey()
     const list = draw.list(key)
@@ -386,6 +394,29 @@ export class DrawingsPrimitive {
         }
       }
     }
+    ctx.restore()
+  }
+
+  // Магнит: кружок на цене свечи, к которой прилипнет точка
+  renderSnap(ctx) {
+    const p = this.getSnap?.()
+    if (!p) return
+    const x = this.a.timeToX(p.time)
+    const y = this.a.priceToY(p.price)
+    if (x == null || y == null) return
+    ctx.save()
+    ctx.setLineDash([])
+    ctx.beginPath()
+    ctx.arc(x, y, 6, 0, Math.PI * 2)
+    ctx.fillStyle = '#2962ff40'
+    ctx.fill()
+    ctx.lineWidth = 2
+    ctx.strokeStyle = '#2962ff'
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.arc(x, y, 2, 0, Math.PI * 2)
+    ctx.fillStyle = '#ffffff'
+    ctx.fill()
     ctx.restore()
   }
 
@@ -447,6 +478,35 @@ export class DrawingController {
     for (const t of ['mousemove', 'touchmove']) {
       el.addEventListener(t, (e) => this.mode === 'drag' && stop(e), opt)
     }
+    el.addEventListener('pointerleave', () => this.setSnap(null))
+    // магнит включили/выключили, сменили инструмент, зажали Ctrl — перекрестие липнет или нет
+    this.offDraw = draw.subscribe(() => this.updateMagnet())
+    this.snap = null
+  }
+
+  destroy() {
+    this.offDraw()
+  }
+
+  // Магнит работает, когда он включён (или зажата Ctrl) и мы рисуем или тянем точку рисунка
+  get magnetActive() {
+    return (settings.magnet || draw.ctrl) && (draw.tool !== 'cursor' || this.mode === 'place' || this.dragInfo?.part?.startsWith('p'))
+  }
+
+  // Перекрестие «прилипает» к ценам свечи: открытие, максимум, минимум, закрытие
+  updateMagnet() {
+    const on = this.magnetActive
+    if (on !== this.magnetOn) {
+      this.magnetOn = on
+      this.pane.chart.applyOptions({ crosshair: { mode: on ? 3 : 0 } }) // 3 — MagnetOHLC, 0 — обычное
+    }
+    if (!on) this.setSnap(null)
+  }
+
+  setSnap(p) {
+    if (!p && !this.snap) return
+    this.snap = p
+    this.pane.drawPrim?.requestUpdate()
   }
 
   get key() {
@@ -474,7 +534,7 @@ export class DrawingController {
     const a = this.a
     const time = a.xToTime(x)
     let price = a.yToPrice(y)
-    if ((settings.magnet || e?.ctrlKey) && price != null) {
+    if ((settings.magnet || draw.ctrl || e?.ctrlKey) && price != null) {
       const bar = a.barAtX(x)
       if (bar) {
         let best = Infinity
@@ -546,6 +606,7 @@ export class DrawingController {
       this.mode = 'drag'
       this.dragInfo = { id: hit.d.id, part: hit.part, start: { x, y }, orig: JSON.parse(JSON.stringify(hit.d)) }
       this.grab(e)
+      this.updateMagnet()
     } else if (draw.selected) {
       draw.select(null)
     }
@@ -553,6 +614,9 @@ export class DrawingController {
 
   move(e) {
     const { x, y } = this.local(e)
+    // магнит: показываем, к какой цене прилипнет точка
+    if (this.magnetActive && this.inside(x, y)) this.setSnap(this.point(x, y, e))
+    else this.setSnap(null)
     if (this.mode === 'place') {
       const p = this.point(x, y, e)
       if (p) draw.update(this.key, this.placeId, { p2: p }, false)
@@ -583,7 +647,9 @@ export class DrawingController {
       if (Math.hypot(x - this.placeStart.x, y - this.placeStart.y) > 6) this.finishPlace(x, y, e)
     } else if (this.mode === 'drag') {
       this.mode = null
+      this.dragInfo = null
       draw.save()
+      this.updateMagnet()
     }
     this.blocking = this.mode === 'place'
     try {
@@ -597,6 +663,7 @@ export class DrawingController {
     this.mode = null
     this.blocking = false
     draw.setTool('cursor')
+    this.updateMagnet()
   }
 
   cancel() {

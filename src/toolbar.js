@@ -44,7 +44,11 @@ export function initToolbar({ getActiveKey, getPanes }) {
   const magnetBtn = document.createElement('button')
   magnetBtn.innerHTML = ICONS.magnet
   magnetBtn.title = 'Магнит: точки липнут к ценам свечей (или держите Ctrl)'
-  magnetBtn.onclick = () => draw.setSetting('magnet', !draw.settings.magnet)
+  magnetBtn.onclick = () => {
+    const on = !draw.settings.magnet
+    draw.setSetting('magnet', on)
+    hint(on ? '🧲 Магнит включён: при рисовании точка прилипает к открытию, максимуму, минимуму или закрытию свечи' : 'Магнит выключен')
+  }
 
   const hideBtn = document.createElement('button')
   hideBtn.onclick = () => draw.setSetting('hidden', !draw.settings.hidden)
@@ -93,7 +97,7 @@ export function initToolbar({ getActiveKey, getPanes }) {
   // ---------- Обновление вида ----------
   function render() {
     for (const [code, b] of toolButtons) b.classList.toggle('active', draw.tool === code)
-    magnetBtn.classList.toggle('active', draw.settings.magnet)
+    magnetBtn.classList.toggle('active', draw.settings.magnet || draw.ctrl)
     hideBtn.innerHTML = draw.settings.hidden ? ICONS.eyeOff : ICONS.eye
     hideBtn.title = draw.settings.hidden ? 'Показать рисунки' : 'Скрыть рисунки'
     hideBtn.classList.toggle('active', draw.settings.hidden)
@@ -109,6 +113,22 @@ export function initToolbar({ getActiveKey, getPanes }) {
   }
   draw.subscribe(render)
   render()
+
+  // Короткое сообщение внизу экрана
+  let hintTimer
+  function hint(text) {
+    const el = document.getElementById('toast')
+    if (!el) return
+    el.textContent = text
+    el.classList.add('show')
+    clearTimeout(hintTimer)
+    hintTimer = setTimeout(() => el.classList.remove('show'), 3500)
+  }
+
+  // Ctrl — временный магнит (пока держите)
+  document.addEventListener('keydown', (e) => e.key === 'Control' && draw.setCtrl(true))
+  document.addEventListener('keyup', (e) => e.key === 'Control' && draw.setCtrl(false))
+  window.addEventListener('blur', () => draw.setCtrl(false))
 
   // ---------- Клавиши ----------
   const HOTKEYS = { KeyH: 'hline', KeyJ: 'hray', KeyV: 'vline', KeyT: 'trend', KeyR: 'rect', KeyF: 'fib' }
