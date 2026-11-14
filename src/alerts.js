@@ -8,6 +8,7 @@
 import { draw, makeAlert, ALERT_COLOR, ALERT_DONE_COLOR, drawingLevels, DRAWING_NAMES } from './drawings.js'
 import { subscribeTickers } from './binance.js'
 import { smart, describe, openSmartDialog, initSmartAlerts } from './smartAlerts.js'
+import { marketShort } from './markets.js'
 
 function decimalsFor(price) {
   if (price >= 1000) return 2
@@ -204,7 +205,7 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
 
   function renderMenu() {
     const time = (ms) => new Date(ms).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-    const tag = (market) => `<em>${market === 'futures' ? 'фьюч' : 'спот'}</em>`
+    const tag = (market) => `<em>${marketShort(market)}</em>`
     const status = (active, at) => (active ? 'ждёт' : at ? 'сработало ' + time(at) : 'выкл.')
     // все три вида в одном списке: [{ html, active, at }]
     const rows = []

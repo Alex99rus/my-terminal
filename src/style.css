@@ -42,7 +42,7 @@ body { display: flex; flex-direction: column; }
   padding: 6px 10px;
   font: inherit;
 }
-.symbol { width: 190px; text-transform: uppercase; }
+.symbol { width: 150px; text-transform: uppercase; }
 .symbol:focus, .market:focus { outline: none; border-color: var(--accent); }
 
 

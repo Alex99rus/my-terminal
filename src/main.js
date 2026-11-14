@@ -7,6 +7,7 @@ import { initToolbar } from './toolbar.js'
 import { initIndicatorsDialog } from './indicatorsDialog.js'
 import { initWatchlist } from './watchlist.js'
 import { initAlerts } from './alerts.js'
+import { MARKETS, marketOptions } from './markets.js'
 import './style.css'
 
 // ---------- Раскладки ----------
@@ -17,7 +18,7 @@ const DEFAULT_INTERVALS = ['1d', '4h', '1h', '15m', '5m', '1m']
 // ---------- Сохранённые настройки ----------
 const saved = JSON.parse(localStorage.getItem('my-terminal-v2') || '{}')
 const state = {
-  market: saved.market || 'futures',
+  market: MARKETS.some((m) => m.code === saved.market) ? saved.market : 'futures',
   chartType: saved.chartType || saved.panes?.[0]?.chartType || 'candles', // один тип для всех окон
   layout: LAYOUTS[saved.layout] ? saved.layout : '4',
   sync: { symbol: true, crosshair: true, time: false, ...saved.sync },
@@ -277,6 +278,7 @@ chartTypeSelect.onchange = () => {
 }
 
 // ---------- Рынок ----------
+marketSelect.innerHTML = marketOptions()
 marketSelect.value = state.market
 marketSelect.onchange = () => {
   state.market = marketSelect.value

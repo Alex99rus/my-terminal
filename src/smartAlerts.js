@@ -8,6 +8,7 @@ import { loadCandles } from './binance.js'
 import { INTERVALS } from './pane.js'
 import { ema, sma, INDICATORS } from './indicators.js'
 import { draw, drawingLevels, DRAWING_NAMES } from './drawings.js'
+import { marketOptions } from './markets.js'
 
 const STORAGE = 'my-terminal-smart-alerts'
 const POLL_MS = 10_000
@@ -364,7 +365,7 @@ export function openSmartDialog({ symbol, market, price }) {
       <div class="modal-head"><b>Умное оповещение</b><button class="modal-close" title="Закрыть (Esc)">✕</button></div>
       <div class="sm-grid">
         <label>Монета <input class="sm-symbol" value="${symbol}"></label>
-        <label>Рынок <select class="sm-market"><option value="futures">Фьючерсы</option><option value="spot">Спот</option></select></label>
+        <label>Рынок <select class="sm-market">${marketOptions()}</select></label>
         <label class="sm-wide">Условие <select class="sm-kind">
           ${Object.entries(groups).map(([g, list]) => `<optgroup label="${g}">${list.map(([c, k]) => `<option value="${c}">${k.label}</option>`).join('')}</optgroup>`).join('')}
         </select></label>

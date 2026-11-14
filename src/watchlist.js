@@ -1,5 +1,6 @@
 // Список монет справа: живые цены, изменение за сутки, несколько списков.
 import { loadTickers, subscribeTickers } from './binance.js'
+import { marketShort } from './markets.js'
 
 const STORAGE = 'my-terminal-watchlists'
 const DEFAULT_ITEMS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT'].map((symbol) => ({ market: 'futures', symbol }))
@@ -238,7 +239,7 @@ export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange }) {
     rowsByKey.clear()
     rowsEl.innerHTML = ''
     const items = ordered()
-    const mixed = new Set(items.map((it) => it.market)).size > 1 // если в списке и спот, и фьючерсы — подписываем
+    const mixed = new Set(items.map((it) => it.market)).size > 1 // если в списке разные биржи или рынки — подписываем
     for (const it of items) {
       const key = keyOf(it)
       const row = document.createElement('div')
@@ -246,7 +247,7 @@ export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange }) {
       row.draggable = !state.sort
       row.dataset.key = key
       row.innerHTML = `
-        <span class="wl-sym">${it.symbol.replace(/USDT$/, '')}<small>${it.symbol.endsWith('USDT') ? 'USDT' : ''}</small>${mixed ? `<em>${it.market === 'futures' ? 'фьюч' : 'спот'}</em>` : ''}</span>
+        <span class="wl-sym">${it.symbol.replace(/USDT$/, '')}<small>${it.symbol.endsWith('USDT') ? 'USDT' : ''}</small>${mixed ? `<em>${marketShort(it.market)}</em>` : ''}</span>
         <span class="wl-last">—</span>
         <span class="wl-chg"></span>
         <button class="wl-del" title="Убрать из списка">✕</button>`
@@ -335,8 +336,8 @@ export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange }) {
     onListChange?.()
     for (const off of unsubs) off()
     unsubs = []
-    const byMarket = { futures: [], spot: [] }
-    for (const it of list().items) byMarket[it.market]?.push(it.symbol)
+    const byMarket = {}
+    for (const it of list().items) (byMarket[it.market] ||= []).push(it.symbol)
     for (const [market, symbols] of Object.entries(byMarket)) {
       if (!symbols.length) continue
       // сначала цены разом (REST), потом живые обновления (WebSocket)

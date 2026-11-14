@@ -7,6 +7,7 @@
 import { createChart, HistogramSeries } from 'lightweight-charts'
 import { fmt } from './pane.js'
 import { makeAdapter, DrawingsPrimitive } from './drawings.js'
+import { marketLabel } from './markets.js'
 
 const BG = '#0e1116'
 const BORDER = '#262b36'
@@ -104,7 +105,7 @@ function drawLegend(canvas, pane, scale) {
 
   put(pane.symbol, TEXT, true)
   put(pane.intervalLabel, '#2962ff', true)
-  put(pane.market === 'futures' ? 'Binance фьючерсы' : 'Binance спот', MUTED, false, 14)
+  put(marketLabel(pane.market), MUTED, false, 14)
   if (bar) {
     const c = bar.close >= bar.open ? UP : DOWN
     for (const [label, value] of [['О', bar.open], ['М', bar.high], ['Н', bar.low], ['З', bar.close]]) {

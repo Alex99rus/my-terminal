@@ -1,4 +1,8 @@
 // Всё общение с биржей Binance — в этом файле.
+// Если рынок — Bybit ('bybit-futures', 'bybit-spot'), запрос уходит в bybit.js.
+import * as bybit from './bybit.js'
+const isBybit = (market) => market.startsWith('bybit-')
+const bybitMarket = (market) => market.slice('bybit-'.length) // 'bybit-spot' → 'spot'
 // Ключи API не нужны: рыночные данные биржа отдаёт бесплатно всем.
 
 // Адреса биржи. Для спота — официальный адрес «только рыночные данные».
@@ -31,6 +35,7 @@ function toBar(row) {
  * endTime — если указать, придут свечи ДО этого момента (для подгрузки истории влево).
  */
 export async function loadCandles(market, symbol, interval, endTime, limit = 1000) {
+  if (isBybit(market)) return bybit.loadCandles(bybitMarket(market), symbol, interval, endTime, limit)
   let url = `${REST[market]}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
   if (endTime) url += `&endTime=${endTime * 1000 - 1}`
   const res = await fetch(url)
@@ -41,6 +46,7 @@ export async function loadCandles(market, symbol, interval, endTime, limit = 100
 
 /** Список всех монет к USDT с ценой и изменением за сутки — для подсказок в поиске */
 export async function loadTickers(market) {
+  if (isBybit(market)) return bybit.loadTickers(bybitMarket(market))
   const res = await fetch(`${REST[market]}/ticker/24hr`)
   if (!res.ok) throw new Error(`Биржа ответила ошибкой ${res.status}`)
   const list = await res.json()
@@ -51,6 +57,7 @@ export async function loadTickers(market) {
 
 /** Данные за сутки по одной монете: изменение цены в % */
 export async function loadTicker(market, symbol) {
+  if (isBybit(market)) return bybit.loadTicker(bybitMarket(market), symbol)
   const res = await fetch(`${REST[market]}/ticker/24hr?symbol=${symbol}`)
   if (!res.ok) throw new Error(`Биржа ответила ошибкой ${res.status}`)
   return res.json()
@@ -67,6 +74,7 @@ export async function loadTicker(market, symbol) {
  * Возвращает функцию «отписаться».
  */
 export function subscribeLive(market, symbol, interval, { onKline, onTrade, onStatus }) {
+  if (isBybit(market)) return bybit.subscribeLive(bybitMarket(market), symbol, interval, { onKline, onTrade, onStatus })
   const s = symbol.toLowerCase()
   return subscribeStreams(market, [`${s}@kline_${interval}`, `${s}@aggTrade`], (msg) => {
     if (msg.e === 'aggTrade') {
@@ -86,6 +94,7 @@ export function subscribeLive(market, symbol, interval, { onKline, onTrade, onSt
  * onTicker получает { symbol, last, open, quoteVolume } (изменение за 24 часа = last к open).
  */
 export function subscribeTickers(market, symbols, onTicker, onStatus) {
+  if (isBybit(market)) return bybit.subscribeTickers(bybitMarket(market), symbols, onTicker, onStatus)
   const streams = symbols.map((s) => `${s.toLowerCase()}@miniTicker`)
   return subscribeStreams(market, streams, (t) => {
     if (t.e !== '24hrMiniTicker') return
