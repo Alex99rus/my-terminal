@@ -9,7 +9,10 @@
     "preview": "vite preview --open"
   },
   "dependencies": {
-    "lightweight-charts": "^5.3.0"
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
+    "lightweight-charts": "^5.3.0",
+    "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {
     "vite": "^8.3.8"

@@ -1,4 +1,6 @@
 // Главный файл: раскладка окон, верхняя панель и синхронизация окон между собой.
+// sync.js подключаем первым: он следит за сохранением данных, чтобы отправлять их на другие устройства
+import { initSync, openSyncDialog, onSyncStatus, syncStatus } from './sync.js'
 import { Pane, fmt, CHART_TYPES } from './pane.js'
 import { loadTickers, loadTicker } from './binance.js'
 import { LAYOUTS, LAYOUT_ORDER, LETTERS, paneCount, applyGridTemplate, createSplitters } from './layout.js'
@@ -24,7 +26,8 @@ const saved = JSON.parse(localStorage.getItem('my-terminal-v2') || '{}')
 const state = {
   market: MARKETS.some((m) => m.code === saved.market) ? saved.market : 'futures',
   chartType: saved.chartType || saved.panes?.[0]?.chartType || 'candles', // один тип для всех окон
-  layout: LAYOUTS[saved.layout] ? saved.layout : '4',
+  // на телефоне по умолчанию одно окно
+  layout: LAYOUTS[saved.layout] ? saved.layout : matchMedia('(max-width: 700px)').matches ? '1' : '4',
   sync: { symbol: true, crosshair: true, time: false, ...saved.sync },
   panes: saved.panes || [], // [{ symbol, interval }]
   active: saved.active || 0,
@@ -476,6 +479,18 @@ initPaperUI({
 
 // ---------- Рисование ----------
 initToolbar({ getActiveKey: () => activePane?.key, getPanes: () => panes })
+
+// ---------- Синхронизация устройств ----------
+$('syncBtn').onclick = () => openSyncDialog()
+onSyncStatus(() => {
+  const st = document.querySelector('#syncBtn .dot')
+  st.className = 'dot ' + syncStatus().status
+})
+initSync()
+
+// ---------- Приложение для телефона (PWA): работает без адресной строки, с иконкой на экране ----------
+if ('serviceWorker' in navigator && location.protocol === 'https:')
+  addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}))
 
 // ---------- Старт ----------
 applyLayout(state.layout)

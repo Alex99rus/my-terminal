@@ -927,3 +927,49 @@ body.resizing-h, body.resizing-h * { cursor: row-resize !important; user-select:
 .sc-star.on { color: #ffb300; }
 .sc-pos { position: relative; display: inline-block; width: 56px; height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--down), #787b86, var(--up)); vertical-align: middle; }
 .sc-pos i { position: absolute; top: -3px; width: 2px; height: 10px; margin-left: -1px; background: #fff; border-radius: 1px; }
+
+/* ---------- Синхронизация устройств ---------- */
+#syncBtn .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); vertical-align: middle; margin-left: 2px; }
+#syncBtn .dot.off { display: none; }
+#syncBtn .dot.ok { background: var(--up); }
+#syncBtn .dot.connecting { background: #ff9800; }
+#syncBtn .dot.error { background: var(--down); }
+.sync-modal p { margin: 10px 0; line-height: 1.5; }
+.sync-modal .muted { color: var(--muted); font-size: 13px; }
+.sync-modal .warn { color: #ff9800; font-size: 13px; }
+.sync-modal button { font: inherit; cursor: pointer; border-radius: 6px; }
+.sync-main { width: 100%; padding: 10px; background: var(--accent); color: #fff; border: none; font-weight: 600 !important; margin-top: 6px; }
+.sync-or { color: var(--muted); font-size: 13px; margin: 16px 0 6px; }
+.sync-join { display: flex; gap: 6px; }
+.sync-join input { flex: 1; min-width: 0; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; font: inherit; font-size: 13px; }
+.sync-join button { background: var(--border); color: var(--text); border: none; padding: 0 12px; white-space: nowrap; }
+.sync-qr { width: 210px; height: 210px; margin: 8px auto 12px; background: #fff; border-radius: 8px; padding: 6px; }
+.sync-qr svg { width: 100%; height: 100%; display: block; }
+.sync-state { font-size: 13px; padding: 7px 10px; border-radius: 6px; background: var(--bg); margin-top: 10px; }
+.sync-state.ok { color: var(--up); }
+.sync-state.connecting { color: #ff9800; }
+.sync-state.error { color: var(--down); }
+.sync-off { width: 100%; margin-top: 6px; padding: 8px; background: none; color: var(--down); border: 1px solid var(--border); }
+.sync-banner {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 60;
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 14px;
+  background: var(--panel); border: 1px solid var(--accent); border-radius: 8px; box-shadow: 0 8px 24px #000a;
+}
+.sync-banner button { background: var(--accent); color: #fff; border: none; border-radius: 5px; padding: 5px 12px; font: inherit; cursor: pointer; }
+
+/* ---------- Телефон: компактная верхняя панель, отступы под «чёлку» и полоску жестов ---------- */
+html, body { height: 100dvh; }
+body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+@media (max-width: 700px) {
+  /* на телефоне панель — одна строка, листается пальцем влево-вправо */
+  .topbar { gap: 5px; padding: 5px 6px; font-size: 13px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .topbar::-webkit-scrollbar { display: none; }
+  .topbar > * { flex: none; }
+  .topbar .logo { display: none; }
+  /* выпадающие меню не обрезаются прокруткой панели */
+  .topbar .layouts-menu, .topbar .snap-menu, .topbar .alerts-menu { position: fixed; top: 46px; left: 6px; right: 6px; width: auto; max-width: none; }
+  .topbar .symbol { width: 110px; }
+  .topbar .symbol, .topbar .market, .topbar select, .topbar .ind-btn { padding: 5px 7px; font-size: 13px; }
+  .topbar .price { order: -1; margin: 0; display: flex; flex-direction: column; line-height: 1.15; font-size: 12px; }
+  .sync-modal .sync-qr { width: 180px; height: 180px; }
+}

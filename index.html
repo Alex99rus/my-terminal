@@ -2,8 +2,17 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Мой терминал</title>
+    <!-- Приложение для телефона: иконка, название, цвет, полноэкранный режим -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="./icons/apple-180.png" />
+    <meta name="theme-color" content="#131722" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Терминал" />
   </head>
   <body>
     <!-- Верхняя панель -->
@@ -69,6 +78,7 @@
       </div>
 
       <button id="paperBtn" class="ind-btn" title="Демо-счёт: виртуальная торговля">💼 Демо</button>
+      <button id="syncBtn" class="ind-btn" title="Синхронизация с телефоном и другими устройствами">📱 Телефон <span class="dot"></span></button>
       <button id="wlToggle" class="ind-btn" title="Список монет">☰ Список</button>
 
       <div class="price">
