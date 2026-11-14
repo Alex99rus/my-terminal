@@ -27,6 +27,7 @@ export const DEFAULT_STYLE = {
   crosshairColor: '#9598a1',
   lastPriceLine: true,
   priceLabel: true,
+  countdown: true, // таймер до закрытия свечи под меткой цены
   // объём
   volumeOpacity: 50, // %
 }
@@ -86,6 +87,7 @@ const SECTIONS = [
     ['crosshairColor', 'Цвет перекрестия', 'color'],
     ['lastPriceLine', 'Линия текущей цены', 'check'],
     ['priceLabel', 'Метка цены на шкале', 'check'],
+    ['countdown', 'Таймер до закрытия свечи', 'check'],
   ]],
   ['Объём', [
     ['volumeOpacity', 'Яркость столбиков объёма', 'select', [[25, '25%'], [50, '50%'], [75, '75%'], [100, '100%']]],

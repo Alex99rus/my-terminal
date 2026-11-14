@@ -11,6 +11,7 @@ import { draw, makeAdapter, DrawingsPrimitive, DrawingController } from './drawi
 import { INDICATORS, indicatorLabel } from './indicators.js'
 import { TATable } from './traderAssistant.js'
 import { DayLinesPrimitive } from './dayLines.js'
+import { CountdownPrimitive } from './countdown.js'
 import { tickMarkFormatter, crosshairTime } from './localTime.js'
 import { style, withAlpha, LINE_STYLE } from './chartSettings.js'
 import { paper } from './paper.js'
@@ -277,6 +278,10 @@ export class Pane {
     this.candles.attachPrimitive(this.drawPrim)
     // границы дня на таймфреймах до 1ч
     this.candles.attachPrimitive(new DayLinesPrimitive(this.chart, () => this.bars, () => this.intervalSec))
+    // таймер до закрытия свечи под меткой цены
+    this.candles.attachPrimitive(
+      new CountdownPrimitive(() => this.bars, () => this.intervalSec, () => this.candles, () => !['candles', 'bars', 'hollow', 'heikin'].includes(this.chartType)),
+    )
     if (this.bars.length) this.candles.setData(this.bars.map(this.toPoint))
     this.paperLines?.clear() // старые линии были на старой серии
     this.syncPaperLines?.()

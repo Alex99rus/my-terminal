@@ -1,0 +1,61 @@
+// Таймер до закрытия свечи — как в TradingView: на шкале цены, прямо под меткой текущей цены.
+// Показывает, сколько осталось до конца текущей свечи (5 минут, часа, дня…).
+import { style } from './chartSettings.js'
+
+// 125 → «02:05», 4000 → «01:06:40», 200000 → «2д 07:33»
+export function fmtLeft(s) {
+  s = Math.max(0, Math.floor(s))
+  const d = Math.floor(s / 86400)
+  const h = Math.floor((s % 86400) / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  const p = (n) => String(n).padStart(2, '0')
+  if (d) return `${d}д ${p(h)}:${p(m)}`
+  if (h) return `${p(h)}:${p(m)}:${p(sec)}`
+  return `${p(m)}:${p(sec)}`
+}
+
+export class CountdownPrimitive {
+  /** getBars() — свечи, getSec() — длина свечи в секундах, getSeries() — главная серия, isLine() — тип «линия» */
+  constructor(getBars, getSec, getSeries, isLine) {
+    this.getBars = getBars
+    this.getSec = getSec
+    this.getSeries = getSeries
+    this.isLine = isLine
+    const view = {
+      coordinate: () => this.y,
+      text: () => this.text,
+      textColor: () => '#fff',
+      backColor: () => this.color,
+      visible: () => this.y != null,
+      tickVisible: () => false,
+    }
+    this._views = [view]
+  }
+  attached({ requestUpdate }) {
+    this._request = requestUpdate
+    this._timer = setInterval(() => requestUpdate(), 1000) // раз в секунду обновляем цифры
+  }
+  detached() {
+    clearInterval(this._timer)
+    this._request = null
+  }
+  priceAxisViews() {
+    this.y = null
+    if (!style.countdown || !style.priceLabel) return this._views
+    const bars = this.getBars()
+    const last = bars?.at(-1)
+    const series = this.getSeries()
+    if (!last || !series) return this._views
+    const left = last.time + this.getSec() - Date.now() / 1000
+    // свеча уже должна была закрыться (например, биржа сейчас не торгует) — таймер не показываем
+    if (left <= 0 || left > this.getSec()) return this._views
+    const y = series.priceToCoordinate(last.close)
+    if (y == null) return this._views
+    // ставим сразу под меткой цены: её высота ≈ размер шрифта + отступы
+    this.y = y + style.fontSize + 7
+    this.text = fmtLeft(left)
+    this.color = this.isLine() ? style.lineColor : last.close >= last.open ? style.bodyUp : style.bodyDown
+    return this._views
+  }
+}
