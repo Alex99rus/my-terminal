@@ -42,6 +42,8 @@ const toTicker = (r) => ({
   openPrice: r.prevPrice24h,
   quoteVolume: r.turnover24h,
   priceChangePercent: String((+r.price24hPcnt || 0) * 100),
+  highPrice: r.highPrice24h,
+  lowPrice: r.lowPrice24h,
 })
 
 export async function loadTickers(market) {

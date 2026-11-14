@@ -6,6 +6,7 @@ import { renderPane, renderAll, download, copyToClipboard, fileName } from './sn
 import { initToolbar } from './toolbar.js'
 import { initIndicatorsDialog } from './indicatorsDialog.js'
 import { initWatchlist } from './watchlist.js'
+import { initScreener } from './screener.js'
 import { initAlerts } from './alerts.js'
 import { MARKETS, marketOptions } from './markets.js'
 import { openChartSettings, onStyleChange } from './chartSettings.js'
@@ -251,6 +252,7 @@ function openSymbol(symbol, market) {
 // Подсветить монету в списке и обновить звёздочку
 function afterSymbolChange() {
   watchlist?.markCurrent()
+  screener?.render()
   const inList = activePane && watchlist?.has(activePane.symbol, activePane.market)
   $('starBtn').textContent = inList ? '★' : '☆'
   $('starBtn').classList.toggle('active', !!inList)
@@ -427,12 +429,26 @@ $('indBtn').classList.toggle('active', state.indicators.length > 0)
 
 // ---------- Список монет ----------
 let watchlist = null
+let screener = null // скринер создаётся сразу после списка (он во вкладке той же панели)
 watchlist = initWatchlist({
   getCurrent: () => activePane && { symbol: activePane.symbol, market: activePane.market },
   getMarket: () => state.market,
   onOpen: (symbol, market) => openSymbol(symbol, market),
-  onListChange: () => afterSymbolChange(),
+  onListChange: () => {
+    afterSymbolChange()
+    screener?.render()
+  },
+  onViewChange: (v) => v === 'screener' && screener?.activate(),
 })
+// Скринер — вкладка в той же правой панели
+screener = initScreener({
+  container: document.querySelector('#watchlist .sc-view'),
+  getCurrent: () => activePane && { symbol: activePane.symbol, market: activePane.market },
+  onOpen: (symbol, market) => openSymbol(symbol, market),
+  watchlist,
+  isActive: () => watchlist.view === 'screener',
+})
+if (watchlist.view === 'screener') screener.activate()
 $('starBtn').onclick = () => activePane && watchlist.toggle(activePane.symbol, activePane.market)
 afterSymbolChange()
 

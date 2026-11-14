@@ -37,7 +37,7 @@ const fmtPrice = (p) => p.toLocaleString('ru-RU', { minimumFractionDigits: decim
  * onOpen(symbol, market) — щёлкнули по монете в списке
  * onListChange() — состав текущего списка изменился (чтобы обновить звёздочку ☆)
  */
-export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange }) {
+export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange, onViewChange }) {
   const state = loadState()
   const save = () => localStorage.setItem(STORAGE, JSON.stringify(state))
   const list = () => state.lists.find((l) => l.id === state.current) || state.lists[0]
@@ -50,10 +50,16 @@ export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange }) {
   const panel = document.getElementById('watchlist')
   panel.innerHTML = `
     <div class="wl-resize" title="Тяните, чтобы изменить ширину. Двойной щелчок — обычная ширина"></div>
+    <div class="rp-tabs">
+      <button data-view="list">☰ Список</button>
+      <button data-view="screener">🔎 Скринер</button>
+      <button class="wl-hide" title="Скрыть панель (Alt+W)">»</button>
+    </div>
+    <div class="sc-view"></div>
+    <div class="wl-view">
     <div class="wl-head">
       <select class="wl-lists" title="Список"></select>
       <button class="wl-menu-btn" title="Списки: создать, переименовать, удалить">⋯</button>
-      <button class="wl-hide" title="Скрыть список (Alt+W)">»</button>
       <div class="wl-menu">
         <button data-act="new">➕ Новый список</button>
         <button data-act="rename">✏️ Переименовать</button>
@@ -68,7 +74,8 @@ export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange }) {
       <span data-sort="change">Изм.</span>
     </div>
     <div class="wl-rows"></div>
-    <div class="wl-empty">Список пуст. Добавьте монету в поле выше или кнопкой ☆ рядом с названием монеты.</div>`
+    <div class="wl-empty">Список пуст. Добавьте монету в поле выше или кнопкой ☆ рядом с названием монеты.</div>
+    </div>`
 
   const listsSelect = panel.querySelector('.wl-lists')
   const rowsEl = panel.querySelector('.wl-rows')
@@ -85,6 +92,21 @@ export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange }) {
     state.open = !state.open
     applyOpen()
     save()
+  }
+
+  // Вкладки «Список» / «Скринер»
+  function applyView() {
+    const v = state.view || 'list'
+    panel.dataset.view = v
+    for (const b of panel.querySelectorAll('.rp-tabs [data-view]')) b.classList.toggle('active', b.dataset.view === v)
+    onViewChange?.(v)
+  }
+  for (const b of panel.querySelectorAll('.rp-tabs [data-view]')) {
+    b.onclick = () => {
+      state.view = b.dataset.view
+      save()
+      applyView()
+    }
   }
   toggleBtn.onclick = toggle
   panel.querySelector('.wl-hide').onclick = toggle
@@ -372,6 +394,7 @@ export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange }) {
   document.addEventListener('keydown', (e) => {
     if (e.target.closest('input, select, textarea') || e.altKey || e.ctrlKey) return
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+    if (state.open && state.view === 'screener') return // стрелками сейчас листается скринер
     const items = ordered()
     if (!items.length) return
     e.preventDefault()
@@ -383,10 +406,14 @@ export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange }) {
   })
 
   applyOpen()
+  applyView()
   rebuild()
 
   return {
     markCurrent,
+    get view() {
+      return state.open ? state.view || 'list' : null
+    },
     // ☆ рядом с названием монеты: есть ли монета в текущем списке, добавить/убрать
     has: (symbol, market) => list().items.some((it) => it.symbol === symbol && it.market === market),
     toggle(symbol, market) {
