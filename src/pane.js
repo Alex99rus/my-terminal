@@ -2,7 +2,7 @@
 // и своим соединением с биржей. Окна ничего не знают друг о друге: о событиях
 // (наведение мыши, прокрутка) они сообщают главному файлу, а тот синхронизирует остальные.
 import {
-  createChart, CandlestickSeries, BarSeries, LineSeries, AreaSeries, HistogramSeries, CrosshairMode,
+  createChart, CandlestickSeries, LineSeries, AreaSeries, HistogramSeries, CrosshairMode,
 } from 'lightweight-charts'
 export { LineSeries, HistogramSeries }
 import { loadCandles, subscribeLive } from './binance.js'
@@ -12,6 +12,7 @@ import { INDICATORS, indicatorLabel } from './indicators.js'
 import { TATable } from './traderAssistant.js'
 import { DayLinesPrimitive } from './dayLines.js'
 import { CountdownPrimitive } from './countdown.js'
+import { ThinBarSeries, addMainSeries } from './thinBars.js'
 import { tickMarkFormatter, crosshairTime } from './localTime.js'
 import { style, withAlpha, LINE_STYLE } from './chartSettings.js'
 import { paper } from './paper.js'
@@ -69,8 +70,9 @@ const candleOptions = (st, hollow) => ({
 export const CHART_TYPES = [
   { code: 'candles', label: 'Свечи', series: CandlestickSeries, point: ohlc, options: (st) => candleOptions(st, false) },
   {
-    code: 'bars', label: 'Бары', series: BarSeries, point: ohlc,
-    options: (st) => ({ upColor: st.bodyUp, downColor: st.bodyDown, openVisible: true, thinBars: false }),
+    // тонкие бары, как в TradingView (рисуем сами — см. thinBars.js)
+    code: 'bars', label: 'Бары', series: ThinBarSeries, point: ohlc,
+    options: (st) => ({ upColor: st.bodyUp, downColor: st.bodyDown, color: st.bodyUp }),
   },
   { code: 'hollow', label: 'Пустые свечи', series: CandlestickSeries, point: ohlc, options: (st) => candleOptions(st, true) },
   { code: 'line', label: 'Линия', series: LineSeries, point: closeOnly, options: (st) => ({ color: st.lineColor, lineWidth: 2 }) },
@@ -266,7 +268,8 @@ export class Pane {
     const type = chartTypeInfo(this.chartType)
     this.seriesCtor = type.series
     this.toPoint = type.point
-    this.candles = this.chart.addSeries(type.series, {
+    this.labelColor = null
+    this.candles = addMainSeries(this.chart, type.series, {
       ...type.options(style),
       priceLineVisible: style.lastPriceLine,
       lastValueVisible: style.priceLabel,
@@ -283,6 +286,7 @@ export class Pane {
       new CountdownPrimitive(() => this.bars, () => this.intervalSec, () => this.candles, () => !['candles', 'bars', 'hollow', 'heikin'].includes(this.chartType)),
     )
     if (this.bars.length) this.candles.setData(this.bars.map(this.toPoint))
+    this.updateLabelColor()
     this.paperLines?.clear() // старые линии были на старой серии
     this.syncPaperLines?.()
   }
@@ -352,6 +356,8 @@ export class Pane {
       priceLineVisible: style.lastPriceLine,
       lastValueVisible: style.priceLabel,
     })
+    this.labelColor = null
+    this.updateLabelColor()
     if (this.bars.length) this.volume.setData(this.bars.map(volumeBar))
     this.el.style.background = style.bg
   }
@@ -514,6 +520,7 @@ export class Pane {
         priceFormat: { type: 'price', precision: this.decimals, minMove: 10 ** -this.decimals },
       })
       this.candles.setData(this.bars.map(this.toPoint))
+      this.updateLabelColor()
       this.volume.setData(this.bars.map(volumeBar))
       for (const e of this.indSeries) e.precision = e.def.precision ?? this.decimals
       this.updateIndicators(0)
@@ -604,9 +611,19 @@ export class Pane {
       this.updateIndicators(Math.max(1, from))
     }
     const last = this.bars.at(-1)
+    this.updateLabelColor(last)
     if (this.legendLive) this.showOhlc(last)
     for (const t of this.taTables) t.onPrice()
     this.hooks.onPrice(this, last.close)
+  }
+
+  // У своих (тонких) баров метка цены красится по последнему бару: рост — зелёная, падение — красная
+  updateLabelColor(last = this.bars.at(-1)) {
+    if (!this.seriesCtor?.custom || !last) return
+    const color = last.close >= last.open ? style.bodyUp : style.bodyDown
+    if (color === this.labelColor) return
+    this.labelColor = color
+    this.candles.applyOptions({ color })
   }
 
   // Подгрузка старой истории при прокрутке влево

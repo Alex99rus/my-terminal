@@ -4,6 +4,7 @@
 // была чётче, мы на долю секунды создаём невидимую копию графика в несколько раз больше
 // (с крупнее шрифтом и свечами), показываем в ней те же свечи и тот же участок истории
 // и фотографируем уже её. Потом копию удаляем.
+import { addMainSeries } from './thinBars.js'
 import { createChart, HistogramSeries } from 'lightweight-charts'
 import { fmt } from './pane.js'
 import { makeAdapter, DrawingsPrimitive } from './drawings.js'
@@ -45,7 +46,7 @@ export async function renderPane(pane, scale) {
   })
 
   try {
-    const candles = copy.addSeries(pane.seriesCtor, pane.candles.options())
+    const candles = addMainSeries(copy, pane.seriesCtor, { ...pane.candles.options(), ...(pane.seriesCtor.custom ? { thinScale: k } : {}) })
     const volume = copy.addSeries(HistogramSeries, pane.volume.options())
     copy.priceScale('volume').applyOptions(pane.chart.priceScale('volume').options())
     candles.priceScale().applyOptions(pane.candles.priceScale().options())
