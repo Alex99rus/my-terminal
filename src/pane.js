@@ -199,7 +199,7 @@ export class Pane {
       autoSize: true,
       // значок TradingView с графика убран — ссылка на TradingView есть внизу панели инструментов слева
       layout: { background: { color: '#0e1116' }, textColor: '#d1d4dc', attributionLogo: false },
-      grid: { vertLines: { color: '#1c2030' }, horzLines: { color: '#1c2030' } },
+      grid: { vertLines: { visible: false }, horzLines: { visible: false } }, // сетку пока убрали
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: '#262b36' },
       timeScale: { borderColor: '#262b36', timeVisible: true, secondsVisible: false },
