@@ -2,8 +2,10 @@
 // sync.js подключаем первым: он следит за сохранением данных, чтобы отправлять их на другие устройства
 import { initSync, openSyncDialog, onSyncStatus, syncStatus } from './sync.js'
 import { openHelp } from './help.js'
+import { initLocked } from './locked.js'
+import { fmtPrice as fmtAnyPrice } from './paper.js'
 import { Pane, fmt, CHART_TYPES } from './pane.js'
-import { loadTickers, loadTicker } from './binance.js'
+import { loadTickers, loadTicker, loadCandles } from './binance.js'
 import { LAYOUTS, LAYOUT_ORDER, LETTERS, paneCount, applyGridTemplate, createSplitters } from './layout.js'
 import { renderPane, renderAll, download, copyToClipboard, fileName } from './snapshot.js'
 import { initToolbar } from './toolbar.js'
@@ -488,6 +490,19 @@ alerts = initAlerts({
   getActivePane: () => activePane,
   onOpen: (symbol, market) => openSymbol(symbol, market),
 })
+
+// ---------- Закрытые индикаторы (по паролю) ----------
+initLocked(
+  {
+    loadCandles,
+    getPanes: () => panes,
+    getMarket: () => state.market,
+    notify: (text, symbol, market) => alerts.notify(text, symbol, market),
+    fmtPrice: (p) => fmtAnyPrice(p),
+    openSymbol: (symbol) => openSymbol(symbol, state.market),
+  },
+  (text) => toast(text, 6000),
+)
 
 // ---------- Демо-счёт ----------
 paper.init({ onNotify: (text) => toast(text) })

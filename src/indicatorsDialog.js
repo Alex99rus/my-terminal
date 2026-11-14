@@ -1,5 +1,6 @@
 // Окно «Индикаторы»: добавить, настроить, удалить.
 import { INDICATORS, INDICATOR_ORDER, newIndicator } from './indicators.js'
+import { LOCKED, lockedState, openLocked, onLockedChange } from './locked.js'
 
 /**
  * getList() — текущий список индикаторов
@@ -24,6 +25,8 @@ export function initIndicatorsDialog({ getList, onChange, getVolume, setVolume }
           return `<button data-type="${t}"><b>${d.name}</b><span>${d.title}</span><em>${d.overlay ? 'на свечах' : 'под графиком'}</em></button>`
         }).join('')}
       </div>
+      <div class="ind-section">🔒 Закрытые индикаторы</div>
+      <div class="ind-add ind-locked"></div>
     </div>`
   document.body.append(overlay)
 
@@ -48,8 +51,25 @@ export function initIndicatorsDialog({ getList, onChange, getVolume, setVolume }
     }
   }
 
+  // Закрытые индикаторы: по паролю
+  const lockedEl = overlay.querySelector('.ind-locked')
+  function renderLocked() {
+    const label = { locked: '🔒 нужен пароль', on: '✓ включён — настроить', off: 'выключен — настроить' }
+    lockedEl.innerHTML = LOCKED.map(
+      (d) => `<button data-locked="${d.id}" class="st-${lockedState(d.id)}"><b>${d.name}</b><span>${d.title}</span><em>${label[lockedState(d.id)]}</em></button>`,
+    ).join('')
+    for (const b of lockedEl.querySelectorAll('[data-locked]')) {
+      b.onclick = () => {
+        close()
+        openLocked(b.dataset.locked)
+      }
+    }
+  }
+  onLockedChange(renderLocked)
+
   // Список добавленных: название, настройки, цвет, удалить
   function render() {
+    renderLocked()
     const list = getList()
     const vol = getVolume()
     overlay.querySelector('.ind-add-volume').style.display = vol ? 'none' : ''

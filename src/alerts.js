@@ -310,5 +310,5 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
   resubscribe()
   renderMenu()
 
-  return { check }
+  return { check, notify }
 }

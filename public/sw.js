@@ -10,7 +10,7 @@ self.addEventListener('fetch', (e) => {
   const req = e.request
   const url = new URL(req.url)
   if (req.method !== 'GET' || url.origin !== location.origin) return // биржи и прочее — напрямую
-  if (url.pathname.includes('/help/')) return // видеоинструкция — напрямую (так работает перемотка)
+  if (url.pathname.includes('/help/') || url.pathname.includes('/locked/')) return // видеоинструкция — напрямую (так работает перемотка)
 
   // Страница: сначала из интернета (чтобы обновления приходили сразу), без связи — из памяти
   if (req.mode === 'navigate') {

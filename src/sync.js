@@ -27,6 +27,7 @@ const PLAIN = {
   chartStyle: 'my-terminal-chart-style',
   paper: 'my-terminal-paper',
   screener: 'my-terminal-screener',
+  lockedLR: 'my-terminal-lr', // сигналы и настройки закрытого индикатора (сам пароль не передаётся)
 }
 // Из общих настроек терминала берём только «не зависящие от экрана» поля
 const MAIN_KEY = 'my-terminal-v2'
