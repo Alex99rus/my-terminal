@@ -282,9 +282,9 @@ export class Pane {
     // границы дня на таймфреймах до 1ч
     this.candles.attachPrimitive(new DayLinesPrimitive(this.chart, () => this.bars, () => this.intervalSec))
     // таймер до закрытия свечи под меткой цены
-    this.candles.attachPrimitive(
-      new CountdownPrimitive(() => this.bars, () => this.intervalSec, () => this.candles, () => !['candles', 'bars', 'hollow', 'heikin'].includes(this.chartType)),
-    )
+    this.countdown?.stop()
+    this.countdown = new CountdownPrimitive(() => this.bars, () => this.intervalSec, () => this.candles, () => !['candles', 'bars', 'hollow', 'heikin'].includes(this.chartType))
+    this.candles.attachPrimitive(this.countdown)
     if (this.bars.length) this.candles.setData(this.bars.map(this.toPoint))
     this.updateLabelColor()
     this.paperLines?.clear() // старые линии были на старой серии
@@ -770,6 +770,7 @@ export class Pane {
 
   destroy() {
     this.loadId++
+    this.countdown?.stop()
     cancelAnimationFrame(this.frame)
     cancelAnimationFrame(this.legendFrame)
     this.resizeObs.disconnect()

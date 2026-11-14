@@ -53,6 +53,10 @@ export class CountdownPrimitive {
     }, 1000)
   }
   detached() {
+    this.stop()
+  }
+  // окно закрывают — таймер больше не нужен (иначе график, которого уже нет, будут просить перерисоваться)
+  stop() {
     clearInterval(this._timer)
     this._request = null
   }
