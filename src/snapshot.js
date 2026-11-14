@@ -8,6 +8,7 @@ import { createChart, HistogramSeries } from 'lightweight-charts'
 import { fmt } from './pane.js'
 import { makeAdapter, DrawingsPrimitive } from './drawings.js'
 import { marketLabel } from './markets.js'
+import { DayLinesPrimitive } from './dayLines.js'
 
 const BG = '#0e1116'
 const BORDER = '#262b36'
@@ -52,6 +53,7 @@ export async function renderPane(pane, scale) {
     // рисунки тоже попадают на снимок (без точек выделения)
     const adapter = makeAdapter(copy, () => candles, () => pane.bars, () => pane.intervalSec)
     candles.attachPrimitive(new DrawingsPrimitive(adapter, () => pane.key, false, k))
+    candles.attachPrimitive(new DayLinesPrimitive(copy, () => pane.bars, () => pane.intervalSec, k))
     volume.setData(pane.volume.data())
 
     // индикаторы: те же линии в тех же панелях, той же высоты

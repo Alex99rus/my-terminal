@@ -9,6 +9,7 @@ import { loadCandles, subscribeLive } from './binance.js'
 import { draw, makeAdapter, DrawingsPrimitive, DrawingController } from './drawings.js'
 import { INDICATORS, indicatorLabel } from './indicators.js'
 import { TATable } from './traderAssistant.js'
+import { DayLinesPrimitive } from './dayLines.js'
 
 // Интервалы: подпись → код у Binance → длина в секундах
 export const INTERVALS = [
@@ -253,6 +254,8 @@ export class Pane {
     // слой с рисунками живёт на главной серии
     this.drawPrim = new DrawingsPrimitive(this.adapter, () => this.key, true, 1, () => this.drawCtl?.snap, () => this.drawCtl?.measure)
     this.candles.attachPrimitive(this.drawPrim)
+    // границы дня на таймфреймах до 1ч
+    this.candles.attachPrimitive(new DayLinesPrimitive(this.chart, () => this.bars, () => this.intervalSec))
     if (this.bars.length) this.candles.setData(this.bars.map(this.toPoint))
   }
 
