@@ -8,6 +8,7 @@ import { initIndicatorsDialog } from './indicatorsDialog.js'
 import { initWatchlist } from './watchlist.js'
 import { initAlerts } from './alerts.js'
 import { MARKETS, marketOptions } from './markets.js'
+import { openChartSettings, onStyleChange } from './chartSettings.js'
 import './style.css'
 
 // ---------- Раскладки ----------
@@ -395,6 +396,12 @@ function toast(text) {
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => el.classList.remove('show'), 3500)
 }
+
+// ---------- Настройки графика ----------
+$('settingsBtn').onclick = () => openChartSettings()
+onStyleChange(() => {
+  for (const p of panes) p.applyStyle()
+})
 
 // ---------- Индикаторы ----------
 const indDialog = initIndicatorsDialog({

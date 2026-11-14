@@ -6,7 +6,7 @@
 // Как у бирж: по UTC (00:00 UTC = 03:00 по Москве), неделя — с понедельника, там же,
 // где начинаются дневная и недельная свечи.
 
-const COLOR = '#3a3f4b'
+import { style } from './chartSettings.js'
 const DAY = 86400
 const WEEK = 7 * DAY
 const MONDAY = 4 * DAY // 1 января 1970 — четверг, первый понедельник — 5 января
@@ -56,7 +56,7 @@ export class DayLinesPrimitive {
 
   render(ctx, size) {
     const period = periodOf(this.getSec())
-    if (!period) return
+    if (!period || !style.periodLines) return
     const bars = this.getBars()
     const ts = this.chart.timeScale()
     const range = ts.getVisibleLogicalRange()
@@ -66,7 +66,7 @@ export class DayLinesPrimitive {
     // расстояние между соседними свечами — линия встаёт посередине между ними
     const step = (ts.logicalToCoordinate(1) ?? 0) - (ts.logicalToCoordinate(0) ?? 0)
     ctx.save()
-    ctx.strokeStyle = COLOR
+    ctx.strokeStyle = style.periodColor
     ctx.lineWidth = this.k
     ctx.setLineDash([4 * this.k, 4 * this.k])
     ctx.beginPath()

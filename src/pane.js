@@ -11,6 +11,7 @@ import { INDICATORS, indicatorLabel } from './indicators.js'
 import { TATable } from './traderAssistant.js'
 import { DayLinesPrimitive } from './dayLines.js'
 import { tickMarkFormatter, crosshairTime } from './localTime.js'
+import { style, withAlpha, LINE_STYLE } from './chartSettings.js'
 
 // Интервалы: подпись → код у Binance → длина в секундах
 export const INTERVALS = [
@@ -41,29 +42,28 @@ export const fmt = (n, d) =>
 // point — как превратить нашу свечу в точку этого графика
 const ohlc = (b) => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })
 const closeOnly = (b) => ({ time: b.time, value: b.close })
+// options(st) — настройки серии с учётом цветов из «Настроек графика»
+const candleOptions = (st, hollow) => ({
+  upColor: hollow ? 'rgba(0,0,0,0)' : st.bodyUp,
+  downColor: st.bodyDown,
+  borderVisible: hollow || st.border,
+  borderUpColor: hollow && !st.border ? st.bodyUp : st.borderUp,
+  borderDownColor: hollow && !st.border ? st.bodyDown : st.borderDown,
+  wickVisible: st.wick,
+  wickUpColor: st.wickUp,
+  wickDownColor: st.wickDown,
+})
 export const CHART_TYPES = [
-  {
-    code: 'candles', label: 'Свечи', series: CandlestickSeries, point: ohlc,
-    options: { upColor: UP, downColor: DOWN, borderVisible: false, wickUpColor: UP, wickDownColor: DOWN },
-  },
+  { code: 'candles', label: 'Свечи', series: CandlestickSeries, point: ohlc, options: (st) => candleOptions(st, false) },
   {
     code: 'bars', label: 'Бары', series: BarSeries, point: ohlc,
-    options: { upColor: UP, downColor: DOWN, openVisible: true, thinBars: false },
+    options: (st) => ({ upColor: st.bodyUp, downColor: st.bodyDown, openVisible: true, thinBars: false }),
   },
-  {
-    code: 'hollow', label: 'Пустые свечи', series: CandlestickSeries, point: ohlc,
-    options: {
-      upColor: 'rgba(0,0,0,0)', downColor: DOWN, borderVisible: true,
-      borderUpColor: UP, borderDownColor: DOWN, wickUpColor: UP, wickDownColor: DOWN,
-    },
-  },
-  {
-    code: 'line', label: 'Линия', series: LineSeries, point: closeOnly,
-    options: { color: '#2962ff', lineWidth: 2 },
-  },
+  { code: 'hollow', label: 'Пустые свечи', series: CandlestickSeries, point: ohlc, options: (st) => candleOptions(st, true) },
+  { code: 'line', label: 'Линия', series: LineSeries, point: closeOnly, options: (st) => ({ color: st.lineColor, lineWidth: 2 }) },
   {
     code: 'area', label: 'Область', series: AreaSeries, point: closeOnly,
-    options: { lineColor: '#2962ff', topColor: '#2962ff66', bottomColor: '#2962ff05', lineWidth: 2 },
+    options: (st) => ({ lineColor: st.lineColor, topColor: withAlpha(st.lineColor, 40), bottomColor: withAlpha(st.lineColor, 2), lineWidth: 2 }),
   },
 ]
 const chartTypeInfo = (code) => CHART_TYPES.find((t) => t.code === code) || CHART_TYPES[0]
@@ -71,7 +71,7 @@ const chartTypeInfo = (code) => CHART_TYPES.find((t) => t.code === code) || CHAR
 const volumeBar = (b) => ({
   time: b.time,
   value: b.volume,
-  color: b.close >= b.open ? UP + '80' : DOWN + '80',
+  color: withAlpha(b.close >= b.open ? style.bodyUp : style.bodyDown, style.volumeOpacity),
 })
 
 export class Pane {
@@ -197,12 +197,12 @@ export class Pane {
   // ---------- График ----------
   buildChart() {
     this.chartEl = this.el.querySelector('.pane-chart')
+    this.el.style.background = style.bg
     this.chart = createChart(this.chartEl, {
       autoSize: true,
       // значок TradingView с графика убран — ссылка на TradingView есть внизу панели инструментов слева
-      layout: { background: { color: '#0e1116' }, textColor: '#d1d4dc', attributionLogo: false },
-      grid: { vertLines: { visible: false }, horzLines: { visible: false } }, // сетку пока убрали
-      crosshair: { mode: CrosshairMode.Normal },
+      ...this.styleOptions(), // цвета, сетка, перекрестие — из «Настроек графика»
+      crosshair: { mode: CrosshairMode.Normal, ...this.styleOptions().crosshair },
       rightPriceScale: { borderColor: '#262b36' },
       // время — по часам пользователя (у библиотеки по умолчанию UTC)
       timeScale: { borderColor: '#262b36', timeVisible: true, secondsVisible: false, tickMarkFormatter },
@@ -249,7 +249,9 @@ export class Pane {
     this.seriesCtor = type.series
     this.toPoint = type.point
     this.candles = this.chart.addSeries(type.series, {
-      ...type.options,
+      ...type.options(style),
+      priceLineVisible: style.lastPriceLine,
+      lastValueVisible: style.priceLabel,
       priceFormat: { type: 'price', precision: this.decimals, minMove: 10 ** -this.decimals },
     }, 0)
     this.candles.priceScale().applyOptions({ scaleMargins: { top: 0.12, bottom: this.showVolume === false ? 0.06 : 0.25 } })
@@ -259,6 +261,28 @@ export class Pane {
     // границы дня на таймфреймах до 1ч
     this.candles.attachPrimitive(new DayLinesPrimitive(this.chart, () => this.bars, () => this.intervalSec))
     if (this.bars.length) this.candles.setData(this.bars.map(this.toPoint))
+  }
+
+  // Часть настроек графика, которая зависит от «Настроек графика»
+  styleOptions() {
+    const cross = { color: style.crosshairColor, style: LINE_STYLE[style.crosshairStyle] ?? 2 }
+    return {
+      layout: { background: { color: style.bg }, textColor: style.text, fontSize: style.fontSize, attributionLogo: false },
+      grid: { vertLines: { visible: style.grid, color: style.gridColor }, horzLines: { visible: style.grid, color: style.gridColor } },
+      crosshair: { vertLine: cross, horzLine: cross },
+    }
+  }
+
+  // Поменяли настройки графика — применить без перезагрузки данных
+  applyStyle() {
+    this.chart.applyOptions(this.styleOptions())
+    this.candles.applyOptions({
+      ...chartTypeInfo(this.chartType).options(style),
+      priceLineVisible: style.lastPriceLine,
+      lastValueVisible: style.priceLabel,
+    })
+    if (this.bars.length) this.volume.setData(this.bars.map(volumeBar))
+    this.el.style.background = style.bg
   }
 
   setChartType(code) {
