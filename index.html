@@ -64,8 +64,16 @@
       </div>
     </header>
 
-    <!-- Сюда добавляются окна графиков -->
-    <main id="grid" class="grid"></main>
+    <div class="workspace">
+      <!-- Панель инструментов рисования слева -->
+      <aside id="toolbar" class="toolbar"></aside>
+
+      <!-- Сюда добавляются окна графиков -->
+      <main id="grid" class="grid"></main>
+
+      <!-- Настройки выделенного рисунка: цвет, толщина, пунктир, удалить -->
+      <div id="drawProps" class="draw-props"></div>
+    </div>
 
     <!-- Всплывающее сообщение -->
     <div id="toast" class="toast"></div>

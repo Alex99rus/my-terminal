@@ -5,6 +5,7 @@ import {
   createChart, CandlestickSeries, BarSeries, LineSeries, AreaSeries, HistogramSeries, CrosshairMode,
 } from 'lightweight-charts'
 import { loadCandles, subscribeLive } from './binance.js'
+import { draw, makeAdapter, DrawingsPrimitive, DrawingController } from './drawings.js'
 
 // Интервалы: подпись → код у Binance → длина в секундах
 export const INTERVALS = [
@@ -98,7 +99,14 @@ export class Pane {
 
     this.buildDom()
     this.buildChart()
+    this.drawCtl = new DrawingController(this) // мышь для рисования
+    this.offDraw = draw.subscribe(() => this.drawPrim?.requestUpdate()) // рисунки изменились — перерисовать
     this.load()
+  }
+
+  // Ключ монеты: по нему хранятся рисунки (одни и те же во всех окнах с этой монетой)
+  get key() {
+    return `${this.market}:${this.symbol}`
   }
 
   // ---------- Разметка окна ----------
@@ -162,15 +170,20 @@ export class Pane {
       if (Pane.dragged && Pane.dragged !== this) this.hooks.onSwap(Pane.dragged, this)
     })
 
-    this.el.addEventListener('pointerdown', () => {
-      this.hovered = true
-      this.hooks.onActivate(this)
-    })
+    this.el.addEventListener(
+      'pointerdown',
+      () => {
+        this.hovered = true
+        this.hooks.onActivate(this)
+      },
+      true, // «на входе»: срабатывает раньше, чем рисование успеет перехватить щелчок
+    )
   }
 
   // ---------- График ----------
   buildChart() {
-    this.chart = createChart(this.el.querySelector('.pane-chart'), {
+    this.chartEl = this.el.querySelector('.pane-chart')
+    this.chart = createChart(this.chartEl, {
       autoSize: true,
       layout: { background: { color: '#0e1116' }, textColor: '#d1d4dc' },
       grid: { vertLines: { color: '#1c2030' }, horzLines: { color: '#1c2030' } },
@@ -186,6 +199,8 @@ export class Pane {
       priceLineVisible: false,
     })
     this.chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } })
+    // перевод «время/цена» ⇄ пиксели для рисунков
+    this.adapter = makeAdapter(this.chart, () => this.candles, () => this.bars, () => this.intervalSec)
     this.createMainSeries()
 
     // Движение мыши по графику
@@ -218,6 +233,9 @@ export class Pane {
       priceFormat: { type: 'price', precision: this.decimals, minMove: 10 ** -this.decimals },
     }, 0)
     this.candles.priceScale().applyOptions({ scaleMargins: { top: 0.12, bottom: 0.25 } })
+    // слой с рисунками живёт на главной серии
+    this.drawPrim = new DrawingsPrimitive(this.adapter, () => this.key)
+    this.candles.attachPrimitive(this.drawPrim)
     if (this.bars.length) this.candles.setData(this.bars.map(this.toPoint))
   }
 
@@ -478,6 +496,7 @@ export class Pane {
   destroy() {
     this.loadId++
     cancelAnimationFrame(this.frame)
+    this.offDraw()
     this.unsubscribe?.()
     this.chart.remove()
     this.el.remove()

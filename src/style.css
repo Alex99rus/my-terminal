@@ -123,9 +123,84 @@ body { display: flex; flex-direction: column; }
 .layouts-menu button .mini { color: var(--muted); flex: none; }
 .layouts-menu button.active .mini, .layout-btn .mini { color: var(--accent); }
 
+/* ---------- Рабочая область: панель инструментов + окна ---------- */
+.workspace { flex: 1; min-height: 0; display: flex; position: relative; }
+
+.toolbar {
+  width: 44px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+.toolbar button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.toolbar button:hover { background: var(--border); color: var(--text); }
+.toolbar button.active { background: #2962ff2e; color: var(--accent); }
+.toolbar .sep { width: 24px; height: 1px; background: var(--border); margin: 6px 0; }
+
+/* Настройки выделенного рисунка — плавающая панель сверху по центру */
+.draw-props {
+  display: none;
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #0008;
+}
+.draw-props.show { display: flex; }
+.draw-props .colors { display: flex; gap: 4px; }
+.draw-props button {
+  height: 26px;
+  min-width: 26px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 4px;
+}
+.draw-props button:hover { background: var(--border); color: var(--text); }
+.draw-props button.active { border-color: var(--accent); color: var(--text); }
+.draw-props .color { width: 20px; min-width: 20px; height: 20px; border-radius: 50%; border: 2px solid transparent; }
+.draw-props .color.active { border-color: #fff; }
+.draw-props .width i { display: block; width: 16px; background: currentColor; border-radius: 1px; }
+.draw-props .dash i { display: block; width: 18px; border-top: 2px dashed currentColor; }
+.draw-props .delete:hover { color: var(--down); }
+.dp-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
+
+/* Курсор мыши над графиком при рисовании */
+.pane-chart.cursor-draw *, body.drawing .pane-chart * { cursor: crosshair !important; }
+.pane-chart.cursor-move * { cursor: move !important; }
+.pane-chart.cursor-point * { cursor: pointer !important; }
+
 /* ---------- Сетка окон ---------- */
 .grid {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   display: grid;
   gap: 2px;
@@ -164,6 +239,9 @@ body.resizing-h, body.resizing-h * { cursor: row-resize !important; user-select:
   }
   .grid > .pane { grid-area: auto !important; }
   .splitters { display: none; }
+  .toolbar { width: 38px; }
+  .toolbar button { width: 30px; height: 30px; }
+  .draw-props { top: auto; bottom: 10px; max-width: 96vw; flex-wrap: wrap; justify-content: center; }
   .sync button { font-size: 12px; }
 }
 

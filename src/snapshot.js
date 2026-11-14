@@ -6,6 +6,7 @@
 // и фотографируем уже её. Потом копию удаляем.
 import { createChart, HistogramSeries } from 'lightweight-charts'
 import { fmt } from './pane.js'
+import { makeAdapter, DrawingsPrimitive } from './drawings.js'
 
 const BG = '#0e1116'
 const BORDER = '#262b36'
@@ -47,6 +48,9 @@ export async function renderPane(pane, scale) {
     copy.priceScale('volume').applyOptions(pane.chart.priceScale('volume').options())
     candles.priceScale().applyOptions(pane.candles.priceScale().options())
     candles.setData(pane.candles.data())
+    // рисунки тоже попадают на снимок (без точек выделения)
+    const adapter = makeAdapter(copy, () => candles, () => pane.bars, () => pane.intervalSec)
+    candles.attachPrimitive(new DrawingsPrimitive(adapter, () => pane.key, false, k))
     volume.setData(pane.volume.data())
 
     // Тот же участок истории…

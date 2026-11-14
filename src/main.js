@@ -3,6 +3,7 @@ import { Pane, fmt, CHART_TYPES } from './pane.js'
 import { loadTickers, loadTicker } from './binance.js'
 import { LAYOUTS, LAYOUT_ORDER, LETTERS, paneCount, applyGridTemplate, createSplitters } from './layout.js'
 import { renderPane, renderAll, download, copyToClipboard, fileName } from './snapshot.js'
+import { initToolbar } from './toolbar.js'
 import './style.css'
 
 // ---------- Раскладки ----------
@@ -361,6 +362,9 @@ function toast(text) {
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => el.classList.remove('show'), 3500)
 }
+
+// ---------- Рисование ----------
+initToolbar({ getActiveKey: () => activePane?.key, getPanes: () => panes })
 
 // ---------- Старт ----------
 applyLayout(state.layout)
