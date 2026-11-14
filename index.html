@@ -11,6 +11,7 @@
       <div class="logo">📈 Мой терминал</div>
 
       <input id="symbol" class="symbol" list="symbols" placeholder="Монета, например BTCUSDT" autocomplete="off" />
+      <button id="starBtn" class="star-btn" title="Добавить в список">☆</button>
       <datalist id="symbols"></datalist>
 
       <select id="market" class="market">
@@ -61,6 +62,8 @@
         </div>
       </div>
 
+      <button id="wlToggle" class="ind-btn" title="Список монет">☰ Список</button>
+
       <div class="price">
         <span id="last">—</span>
         <span id="change"></span>
@@ -73,6 +76,9 @@
 
       <!-- Сюда добавляются окна графиков -->
       <main id="grid" class="grid"></main>
+
+      <!-- Список монет справа -->
+      <aside id="watchlist" class="watchlist"></aside>
 
       <!-- Настройки выделенного рисунка: цвет, толщина, пунктир, удалить -->
       <div id="drawProps" class="draw-props"></div>

@@ -68,7 +68,36 @@ export async function loadTicker(market, symbol) {
  */
 export function subscribeLive(market, symbol, interval, { onKline, onTrade, onStatus }) {
   const s = symbol.toLowerCase()
-  const streams = [`${s}@kline_${interval}`, `${s}@aggTrade`]
+  return subscribeStreams(market, [`${s}@kline_${interval}`, `${s}@aggTrade`], (msg) => {
+    if (msg.e === 'aggTrade') {
+      onTrade(+msg.p, +msg.q, msg.T / 1000)
+    } else if (msg.e === 'kline') {
+      const k = msg.k
+      onKline(
+        { time: k.t / 1000, open: +k.o, high: +k.h, low: +k.l, close: +k.c, volume: +k.v },
+        msg.E / 1000, // когда биржа отправила эту свечу
+      )
+    }
+  }, onStatus)
+}
+
+/**
+ * Цены нескольких монет раз в секунду — для списка монет.
+ * onTicker получает { symbol, last, open, quoteVolume } (изменение за 24 часа = last к open).
+ */
+export function subscribeTickers(market, symbols, onTicker, onStatus) {
+  const streams = symbols.map((s) => `${s.toLowerCase()}@miniTicker`)
+  return subscribeStreams(market, streams, (t) => {
+    if (t.e !== '24hrMiniTicker') return
+    onTicker({ symbol: t.s, last: +t.c, open: +t.o, quoteVolume: +t.q })
+  }, onStatus)
+}
+
+/**
+ * Общая часть: подключиться, подписаться на потоки streams, отдавать сообщения в onData.
+ * Если связь оборвалась — переподключаемся; если по адресу 8 секунд тишина — пробуем другой адрес.
+ */
+function subscribeStreams(market, streams, onData, onStatus) {
   const urls = WS_URLS[market]
   let urlIndex = 0
   let ws
@@ -100,15 +129,7 @@ export function subscribeLive(market, symbol, interval, { onKline, onTrade, onSt
         silenceTimer = 0
         onStatus?.('')
       }
-      if (msg.e === 'aggTrade') {
-        onTrade(+msg.p, +msg.q, msg.T / 1000)
-      } else if (msg.e === 'kline') {
-        const k = msg.k
-        onKline(
-          { time: k.t / 1000, open: +k.o, high: +k.h, low: +k.l, close: +k.c, volume: +k.v },
-          msg.E / 1000, // когда биржа отправила эту свечу
-        )
-      }
+      onData(msg)
     }
     ws.onclose = () => {
       clearTimeout(silenceTimer)

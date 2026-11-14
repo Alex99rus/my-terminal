@@ -5,6 +5,7 @@ import { LAYOUTS, LAYOUT_ORDER, LETTERS, paneCount, applyGridTemplate, createSpl
 import { renderPane, renderAll, download, copyToClipboard, fileName } from './snapshot.js'
 import { initToolbar } from './toolbar.js'
 import { initIndicatorsDialog } from './indicatorsDialog.js'
+import { initWatchlist } from './watchlist.js'
 import './style.css'
 
 // ---------- Раскладки ----------
@@ -99,6 +100,7 @@ function setActive(pane) {
   if (pane.bars.length) showLastPrice(pane.bars.at(-1).close, pane.decimals)
   updateChange()
   save()
+  afterSymbolChange()
 }
 
 // ---------- Раскладка ----------
@@ -216,13 +218,34 @@ for (const btn of document.querySelectorAll('[data-sync]')) {
 function applySymbol() {
   const s = symbolInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
   if (!s || !activePane) return
-  symbolInput.value = s
   symbolInput.blur()
+  openSymbol(s, state.market)
+}
+
+// Открыть монету: в активном окне или во всех (если включена синхронизация монеты)
+function openSymbol(symbol, market) {
+  if (!activePane) return
+  if (market !== state.market) {
+    state.market = market
+    marketSelect.value = market
+    fillSymbols()
+  }
   const targets = state.sync.symbol ? panes : [activePane]
-  for (const p of targets) p.setSymbol(s)
-  document.title = `${s} — Мой терминал`
+  for (const p of panes) p.setSymbol(targets.includes(p) ? symbol : p.symbol, state.market)
+  symbolInput.value = symbol
+  document.title = `${symbol} — Мой терминал`
   updateChange()
   save()
+  afterSymbolChange()
+}
+
+// Подсветить монету в списке и обновить звёздочку
+function afterSymbolChange() {
+  watchlist?.markCurrent()
+  const inList = activePane && watchlist?.has(activePane.symbol, activePane.market)
+  $('starBtn').textContent = inList ? '★' : '☆'
+  $('starBtn').classList.toggle('active', !!inList)
+  $('starBtn').title = inList ? 'Убрать из списка' : 'Добавить в список'
 }
 symbolInput.addEventListener('change', applySymbol)
 symbolInput.addEventListener('keydown', (e) => e.key === 'Enter' && applySymbol())
@@ -257,6 +280,7 @@ marketSelect.onchange = () => {
   fillSymbols()
   updateChange()
   save()
+  afterSymbolChange()
 }
 
 // ---------- Цена вверху ----------
@@ -378,6 +402,17 @@ const indDialog = initIndicatorsDialog({
 })
 $('indBtn').onclick = () => indDialog.open()
 $('indBtn').classList.toggle('active', state.indicators.length > 0)
+
+// ---------- Список монет ----------
+let watchlist = null
+watchlist = initWatchlist({
+  getCurrent: () => activePane && { symbol: activePane.symbol, market: activePane.market },
+  getMarket: () => state.market,
+  onOpen: (symbol, market) => openSymbol(symbol, market),
+  onListChange: () => afterSymbolChange(),
+})
+$('starBtn').onclick = () => activePane && watchlist.toggle(activePane.symbol, activePane.market)
+afterSymbolChange()
 
 // ---------- Рисование ----------
 initToolbar({ getActiveKey: () => activePane?.key, getPanes: () => panes })

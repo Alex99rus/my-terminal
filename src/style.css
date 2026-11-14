@@ -476,3 +476,116 @@ body.resizing-h, body.resizing-h * { cursor: row-resize !important; user-select:
 .ind-add button:hover { border-color: var(--accent); }
 .ind-add span { font-size: 12px; color: var(--muted); line-height: 1.3; }
 .ind-add em { font-style: normal; font-size: 11px; color: var(--accent); }
+
+/* ---------- Список монет ---------- */
+.star-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  margin-left: -6px;
+}
+.star-btn:hover { color: var(--text); }
+.star-btn.active { color: #ffb300; }
+
+.watchlist {
+  display: none;
+  width: 300px;
+  flex: none;
+  flex-direction: column;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  min-height: 0;
+}
+.watchlist.open { display: flex; }
+.wl-head { position: relative; display: flex; gap: 4px; padding: 8px 8px 4px; }
+.wl-lists {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px 6px;
+  font: inherit;
+  font-weight: 600;
+}
+.wl-menu-btn { background: none; border: 1px solid var(--border); border-radius: 5px; color: var(--muted); cursor: pointer; padding: 0 8px; font-size: 16px; }
+.wl-menu-btn:hover { background: var(--border); color: var(--text); }
+.wl-menu {
+  display: none;
+  position: absolute;
+  right: 8px;
+  top: calc(100% + 2px);
+  z-index: 20;
+  min-width: 190px;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #0008;
+}
+.wl-menu.open { display: block; }
+.wl-menu button { display: block; width: 100%; text-align: left; background: none; border: none; color: var(--text); padding: 7px 10px; border-radius: 5px; font: inherit; cursor: pointer; }
+.wl-menu button:hover { background: var(--border); }
+.wl-add {
+  margin: 4px 8px 6px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 6px 8px;
+  font: inherit;
+  text-transform: uppercase;
+}
+.wl-add::placeholder { text-transform: none; }
+.wl-add:focus { outline: none; border-color: var(--accent); }
+
+.wl-cols, .wl-row {
+  display: grid;
+  grid-template-columns: minmax(84px, 1fr) auto 62px 16px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 12px;
+}
+.wl-cols { color: var(--muted); font-size: 12px; padding-top: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.wl-cols span { cursor: pointer; user-select: none; }
+.wl-cols span:hover { color: var(--text); }
+.wl-cols span:nth-child(2), .wl-cols span:nth-child(3) { text-align: right; }
+.wl-cols span[data-arrow]:not([data-arrow=""])::after { content: " " attr(data-arrow); color: var(--accent); }
+.wl-cols::after { content: ""; }
+.wl-rows { flex: 1; overflow-y: auto; }
+.wl-row {
+  height: 32px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  border-top: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+}
+.wl-row:hover { background: #ffffff0a; }
+.wl-row.current { background: #2962ff22; }
+.wl-row.dragging { opacity: 0.4; }
+.wl-row.drop-above { border-top-color: var(--accent); }
+.wl-row.drop-below { border-bottom-color: var(--accent); }
+.wl-sym { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wl-sym small { color: var(--muted); font-weight: 400; font-size: 11px; margin-left: 1px; }
+.wl-sym em { font-style: normal; font-weight: 400; font-size: 10px; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; padding: 0 3px; margin-left: 5px; }
+.wl-last { text-align: right; border-radius: 3px; padding: 0 2px; }
+.wl-chg { text-align: right; font-size: 13px; }
+.wl-del { background: none; border: none; color: transparent; cursor: pointer; padding: 0; font-size: 12px; }
+.wl-row:hover .wl-del { color: var(--muted); }
+.wl-row .wl-del:hover { color: var(--down); }
+.wl-empty { display: none; color: var(--muted); padding: 14px 12px; font-size: 13px; line-height: 1.5; }
+.watchlist.empty .wl-empty { display: block; }
+
+@keyframes flashUp { from { background: #26a69a66; } to { background: transparent; } }
+@keyframes flashDown { from { background: #ef535066; } to { background: transparent; } }
+.flash-up { animation: flashUp 0.6s ease-out; }
+.flash-down { animation: flashDown 0.6s ease-out; }
+
+@media (max-width: 700px) {
+  .watchlist { position: absolute; right: 0; top: 0; bottom: 0; z-index: 25; width: min(300px, 86vw); box-shadow: -8px 0 24px #0008; }
+}
