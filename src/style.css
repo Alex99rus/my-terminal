@@ -151,6 +151,16 @@ body { display: flex; flex-direction: column; }
 }
 .toolbar button:hover { background: var(--border); color: var(--text); }
 .toolbar button.active { background: #2962ff2e; color: var(--accent); }
+.tv-credit {
+  margin-top: auto; /* в самый низ панели */
+  padding: 6px 0 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: -0.5px;
+}
+.tv-credit:hover { color: var(--text); }
 .toolbar .sep { width: 24px; height: 1px; background: var(--border); margin: 6px 0; }
 
 /* Настройки выделенного рисунка — плавающая панель сверху по центру */
@@ -750,12 +760,13 @@ body.resizing-h, body.resizing-h * { cursor: row-resize !important; user-select:
 /* ---------- Таблица Trader Assistant ---------- */
 .ta-table {
   position: absolute;
-  left: 50px; /* не закрываем значок библиотеки графиков в углу */
+  left: 0;
   z-index: 3;
   pointer-events: none;
   background: rgba(22, 26, 34, 0.88);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-left: none;
+  border-radius: 0 6px 6px 0;
   padding: 3px 4px;
   font-variant-numeric: tabular-nums;
 }

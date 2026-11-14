@@ -197,7 +197,8 @@ export class Pane {
     this.chartEl = this.el.querySelector('.pane-chart')
     this.chart = createChart(this.chartEl, {
       autoSize: true,
-      layout: { background: { color: '#0e1116' }, textColor: '#d1d4dc' },
+      // значок TradingView с графика убран — ссылка на TradingView есть внизу панели инструментов слева
+      layout: { background: { color: '#0e1116' }, textColor: '#d1d4dc', attributionLogo: false },
       grid: { vertLines: { color: '#1c2030' }, horzLines: { color: '#1c2030' } },
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: '#262b36' },

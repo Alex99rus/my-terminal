@@ -161,7 +161,7 @@ function drawTATable(canvas, pane, scale, copy) {
   const w = widths.reduce((a, b) => a + b, 0) + pad * 6
   const h = rows.length * rowH + pad
   const mainH = copy.panes()[0].getHeight() * dpr
-  const x0 = 10 * scale
+  const x0 = 0
   const y0 = mainH - h - 8 * scale
   ctx.fillStyle = 'rgba(22, 26, 34, 0.88)'
   ctx.fillRect(x0, y0, w, h)

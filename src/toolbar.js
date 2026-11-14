@@ -69,6 +69,16 @@ export function initToolbar({ getActiveKey, getPanes }) {
   }
   bar.append(magnetBtn, hideBtn, clearBtn)
 
+  // Ссылка на TradingView — так требует лицензия библиотеки графиков Lightweight Charts
+  const credit = document.createElement('a')
+  credit.className = 'tv-credit'
+  credit.href = 'https://www.tradingview.com/'
+  credit.target = '_blank'
+  credit.rel = 'noopener'
+  credit.title = 'Графики: TradingView Lightweight Charts™ — Copyright © TradingView, Inc. https://www.tradingview.com/'
+  credit.textContent = 'TV'
+  bar.append(credit)
+
   // ---------- Настройки выделенного рисунка ----------
   props.innerHTML = `
     <div class="colors">${COLORS.map((c) => `<button class="color" data-color="${c}" style="background:${c}" title="Цвет"></button>`).join('')}</div>
