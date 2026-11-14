@@ -1,5 +1,5 @@
 // Панель инструментов рисования (слева) и панель настроек выделенного рисунка (сверху).
-import { draw, TOOLS, COLORS } from './drawings.js'
+import { draw, TOOLS, COLORS, TEXT_SIZES } from './drawings.js'
 
 // Значки — маленькие картинки SVG, нарисованные линиями
 const svg = (inner) =>
@@ -13,6 +13,10 @@ const ICONS = {
   ray: svg('<path d="M6 18L21 3"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="12" r="2"/>'),
   rect: svg('<rect x="4" y="6" width="16" height="12" rx="1"/>'),
   fib: svg('<path d="M3 5h18M3 9.5h18M3 14h18M3 19h18"/>'),
+  long: svg('<path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="5" width="12" height="7" rx="1" fill="#26a69a55" stroke="#26a69a"/><rect x="7" y="12" width="12" height="4" rx="1" fill="#ef535055" stroke="#ef5350"/>'),
+  short: svg('<path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="5" width="12" height="4" rx="1" fill="#ef535055" stroke="#ef5350"/><rect x="7" y="9" width="12" height="7" rx="1" fill="#26a69a55" stroke="#26a69a"/>'),
+  ruler: svg('<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>'),
+  text: svg('<path d="M5 6V4h14v2M12 4v16M9 20h6"/>'),
   alert: svg('<path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 004 0"/>'),
   magnet: svg('<path d="M6 4v8a6 6 0 0012 0V4"/><path d="M6 8h4M14 8h4"/>'),
   eye: svg('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
@@ -67,11 +71,15 @@ export function initToolbar({ getActiveKey, getPanes }) {
   // ---------- Настройки выделенного рисунка ----------
   props.innerHTML = `
     <div class="colors">${COLORS.map((c) => `<button class="color" data-color="${c}" style="background:${c}" title="Цвет"></button>`).join('')}</div>
-    <span class="dp-sep"></span>
+    <span class="dp-sep s1"></span>
     ${[1, 2, 3, 4].map((w) => `<button class="width" data-width="${w}" title="Толщина ${w}"><i style="height:${w}px"></i></button>`).join('')}
-    <span class="dp-sep"></span>
+    <span class="dp-sep s2"></span>
     <button class="dash" title="Пунктир"><i></i></button>
-    <span class="dp-sep"></span>
+    <span class="dp-sep s3"></span>
+    <span class="sizes">${TEXT_SIZES.map((sz) => `<button class="size" data-size="${sz}" title="Размер ${sz}" style="font-size:${Math.min(sz, 18)}px">A</button>`).join('')}</span>
+    <label class="risk" title="Сколько долларов вы готовы потерять, если сработает стоп">Риск $ <input type="number" min="1" step="1"></label>
+    <button class="flip" title="Перевернуть: лонг ⇄ шорт">⇅</button>
+    <span class="dp-sep s4"></span>
     <button class="delete" title="Удалить (Delete)">${ICONS.trash}</button>`
 
   // меняем выделенный рисунок и запоминаем как стиль для следующих
@@ -83,6 +91,26 @@ export function initToolbar({ getActiveKey, getPanes }) {
   for (const b of props.querySelectorAll('.color')) b.onclick = () => change({ color: b.dataset.color })
   for (const b of props.querySelectorAll('.width')) b.onclick = () => change({ width: +b.dataset.width })
   props.querySelector('.dash').onclick = () => change({ dash: !draw.selectedDrawing()?.dash })
+  for (const b of props.querySelectorAll('.size')) {
+    b.onclick = () => {
+      const sel = draw.selected
+      if (sel) draw.update(sel.key, sel.id, { size: +b.dataset.size })
+      draw.setSetting('textSize', +b.dataset.size)
+    }
+  }
+  const riskInput = props.querySelector('.risk input')
+  riskInput.onchange = () => {
+    const v = parseFloat(riskInput.value.replace(',', '.'))
+    if (v > 0) draw.setSetting('risk', v)
+  }
+  riskInput.addEventListener('keydown', (e) => e.stopPropagation())
+  // лонг ⇄ шорт: стоп и цель меняются местами
+  props.querySelector('.flip').onclick = () => {
+    const sel = draw.selected
+    const d = draw.selectedDrawing()
+    if (!d?.entry) return
+    draw.update(sel.key, sel.id, { type: d.type === 'long' ? 'short' : 'long', stop: d.target, target: d.stop })
+  }
   props.querySelector('.delete').onclick = () => deleteSelected()
   // щелчки по панели не должны снимать выделение
   props.addEventListener('pointerdown', (e) => e.stopPropagation())
@@ -106,6 +134,13 @@ export function initToolbar({ getActiveKey, getPanes }) {
     const d = draw.selectedDrawing()
     props.classList.toggle('show', !!d)
     if (d) {
+      // для разных рисунков — разные настройки
+      const isPos = d.type === 'long' || d.type === 'short'
+      const isText = d.type === 'text'
+      const isAlert = d.type === 'alert'
+      props.dataset.kind = isPos ? 'position' : isText ? 'text' : isAlert ? 'alert' : 'line'
+      for (const b of props.querySelectorAll('.size')) b.classList.toggle('active', +b.dataset.size === d.size)
+      if (document.activeElement !== riskInput) riskInput.value = draw.settings.risk
       for (const b of props.querySelectorAll('.color')) b.classList.toggle('active', b.dataset.color === d.color)
       for (const b of props.querySelectorAll('.width')) b.classList.toggle('active', +b.dataset.width === d.width)
       props.querySelector('.dash').classList.toggle('active', !!d.dash)
