@@ -225,7 +225,7 @@ export class Pane {
       crosshair: { mode: CrosshairMode.Normal, ...this.styleOptions().crosshair },
       rightPriceScale: { borderColor: '#262b36' },
       // время — по часам пользователя (у библиотеки по умолчанию UTC)
-      timeScale: { borderColor: '#262b36', timeVisible: true, secondsVisible: false, tickMarkFormatter },
+      timeScale: { borderColor: '#262b36', timeVisible: true, secondsVisible: false, tickMarkFormatter, rightOffset: style.rightOffset },
       localization: { locale: 'ru-RU', timeFormatter: (t) => crosshairTime(t, this.intervalSec < 86400) },
     })
     this.volume = this.chart.addSeries(HistogramSeries, {
@@ -345,6 +345,7 @@ export class Pane {
       layout: { background: { color: style.bg }, textColor: style.text, fontSize: style.fontSize, attributionLogo: false },
       grid: { vertLines: { visible: style.grid, color: style.gridColor }, horzLines: { visible: style.grid, color: style.gridColor } },
       crosshair: { vertLine: cross, horzLine: cross },
+      timeScale: { rightOffset: style.rightOffset }, // отступ справа от последней свечи
     }
   }
 
