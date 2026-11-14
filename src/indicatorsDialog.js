@@ -5,7 +5,7 @@ import { INDICATORS, INDICATOR_ORDER, newIndicator } from './indicators.js'
  * getList() — текущий список индикаторов
  * onChange(list) — список изменился (добавили, удалили, поменяли настройку)
  */
-export function initIndicatorsDialog({ getList, onChange }) {
+export function initIndicatorsDialog({ getList, onChange, getVolume, setVolume }) {
   const overlay = document.createElement('div')
   overlay.className = 'modal-overlay'
   overlay.innerHTML = `
@@ -18,6 +18,7 @@ export function initIndicatorsDialog({ getList, onChange }) {
       <div class="ind-active"></div>
       <div class="ind-section">Добавить</div>
       <div class="ind-add">
+        <button data-type="volume" class="ind-add-volume"><b>Объём</b><span>Столбики объёма торгов внизу графика</span><em>на свечах</em></button>
         ${INDICATOR_ORDER.map((t) => {
           const d = INDICATORS[t]
           return `<button data-type="${t}"><b>${d.name}</b><span>${d.title}</span><em>${d.overlay ? 'на свечах' : 'под графиком'}</em></button>`
@@ -34,6 +35,13 @@ export function initIndicatorsDialog({ getList, onChange }) {
 
   // Добавить индикатор
   for (const b of overlay.querySelectorAll('.ind-add button')) {
+    if (b.dataset.type === 'volume') {
+      b.onclick = () => {
+        setVolume(true)
+        render()
+      }
+      continue
+    }
     b.onclick = () => {
       onChange([...getList(), newIndicator(b.dataset.type)])
       render()
@@ -43,11 +51,16 @@ export function initIndicatorsDialog({ getList, onChange }) {
   // Список добавленных: название, настройки, цвет, удалить
   function render() {
     const list = getList()
-    if (!list.length) {
+    const vol = getVolume()
+    overlay.querySelector('.ind-add-volume').style.display = vol ? 'none' : ''
+    const volumeRow = vol
+      ? `<div class="ind-row"><span class="ind-vol-icon">▮▮</span><b>Объём</b><span class="ind-params">столбики внизу графика</span><button class="ind-del" data-volume="1" title="Убрать объём">✕</button></div>`
+      : ''
+    if (!list.length && !vol) {
       activeEl.innerHTML = '<div class="ind-empty">Пока нет индикаторов — выберите ниже</div>'
       return
     }
-    activeEl.innerHTML = list
+    activeEl.innerHTML = volumeRow + list
       .map((ind) => {
         const def = INDICATORS[ind.type]
         const params = Object.entries(def.params)
@@ -73,6 +86,13 @@ export function initIndicatorsDialog({ getList, onChange }) {
       input.oninput = () => change(input.dataset.id, (ind) => ({ ...ind, color: input.value }))
     }
     for (const b of activeEl.querySelectorAll('.ind-del')) {
+      if (b.dataset.volume) {
+        b.onclick = () => {
+          setVolume(false)
+          render()
+        }
+        continue
+      }
       b.onclick = () => {
         onChange(getList().filter((i) => i.id !== b.dataset.id))
         render()

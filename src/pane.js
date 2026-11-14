@@ -87,6 +87,7 @@ export class Pane {
     this.interval = settings.interval
     this.chartType = chartTypeInfo(settings.chartType).code
     this.indicators = settings.indicators || [] // список индикаторов (общий для всех окон)
+    this.showVolume = settings.volume !== false // столбики объёма внизу графика
     this.indSeries = [] // нарисованные индикаторы: { ind, def, paneIndex, lines: [{ key, series, ctor, values }] }
     this.hooks = hooks
     this.bars = []
@@ -211,6 +212,7 @@ export class Pane {
     // перевод «время/цена» ⇄ пиксели для рисунков
     this.adapter = makeAdapter(this.chart, () => this.candles, () => this.bars, () => this.intervalSec)
     this.createMainSeries()
+    this.setVolumeVisible(this.showVolume)
     this.buildIndicators()
 
     // Движение мыши по графику
@@ -244,7 +246,7 @@ export class Pane {
       ...type.options,
       priceFormat: { type: 'price', precision: this.decimals, minMove: 10 ** -this.decimals },
     }, 0)
-    this.candles.priceScale().applyOptions({ scaleMargins: { top: 0.12, bottom: 0.25 } })
+    this.candles.priceScale().applyOptions({ scaleMargins: { top: 0.12, bottom: this.showVolume === false ? 0.06 : 0.25 } })
     // слой с рисунками живёт на главной серии
     this.drawPrim = new DrawingsPrimitive(this.adapter, () => this.key, true, 1, () => this.drawCtl?.snap, () => this.drawCtl?.measure)
     this.candles.attachPrimitive(this.drawPrim)
@@ -260,6 +262,13 @@ export class Pane {
   }
 
   // ---------- Индикаторы ----------
+
+  // Показать / спрятать объём. Без объёма свечи занимают и нижнюю часть графика
+  setVolumeVisible(on) {
+    this.showVolume = on
+    this.volume.applyOptions({ visible: on })
+    this.candles.priceScale().applyOptions({ scaleMargins: { top: 0.12, bottom: on ? 0.25 : 0.06 } })
+  }
 
   setIndicators(list) {
     this.indicators = list

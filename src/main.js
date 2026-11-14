@@ -24,6 +24,7 @@ const state = {
   panes: saved.panes || [], // [{ symbol, interval }]
   active: saved.active || 0,
   indicators: saved.indicators || [], // индикаторы — одни и те же во всех окнах
+  volume: saved.volume !== false, // объём внизу графика
   snap: { what: 'active', scale: '3', to: 'file', ...saved.snap }, // настройки снимка
   sizes: saved.sizes || {}, // размеры окон для каждой раскладки: { '4': { cols: [..], rows: [..] } }
 }
@@ -126,6 +127,7 @@ function applyLayout(key) {
         interval: savedPane?.interval || DEFAULT_INTERVALS[i] || '1h',
         chartType: state.chartType,
         indicators: state.indicators,
+        volume: state.volume,
       },
       hooks,
     )
@@ -399,6 +401,12 @@ const indDialog = initIndicatorsDialog({
     state.indicators = list
     for (const p of panes) p.setIndicators(list)
     $('indBtn').classList.toggle('active', list.length > 0)
+    save()
+  },
+  getVolume: () => state.volume,
+  setVolume(on) {
+    state.volume = on
+    for (const p of panes) p.setVolumeVisible(on)
     save()
   },
 })
