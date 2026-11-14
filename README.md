@@ -20,6 +20,7 @@
 - `src/snapshot.js` — снимки графиков в высоком разрешении
 - `src/drawings.js` — рисование: линии, лучи, прямоугольник, Фибоначчи
 - `src/indicators.js` — формулы индикаторов (EMA, SMA, RSI, MACD…)
+- `src/localTime.js` — время на шкале по часовому поясу пользователя
 - `src/dayLines.js` — вертикальные линии: границы дня (до 1ч), недели (4ч), месяца (1Д) и года (1Н)
 - `src/traderAssistant.js` — индикатор Trader Assistant (таблица по дневному ATR)
 - `src/indicatorsDialog.js` — окно «Индикаторы»

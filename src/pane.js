@@ -10,6 +10,7 @@ import { draw, makeAdapter, DrawingsPrimitive, DrawingController } from './drawi
 import { INDICATORS, indicatorLabel } from './indicators.js'
 import { TATable } from './traderAssistant.js'
 import { DayLinesPrimitive } from './dayLines.js'
+import { tickMarkFormatter, crosshairTime } from './localTime.js'
 
 // Интервалы: подпись → код у Binance → длина в секундах
 export const INTERVALS = [
@@ -203,8 +204,9 @@ export class Pane {
       grid: { vertLines: { visible: false }, horzLines: { visible: false } }, // сетку пока убрали
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: '#262b36' },
-      timeScale: { borderColor: '#262b36', timeVisible: true, secondsVisible: false },
-      localization: { locale: 'ru-RU' },
+      // время — по часам пользователя (у библиотеки по умолчанию UTC)
+      timeScale: { borderColor: '#262b36', timeVisible: true, secondsVisible: false, tickMarkFormatter },
+      localization: { locale: 'ru-RU', timeFormatter: (t) => crosshairTime(t, this.intervalSec < 86400) },
     })
     this.volume = this.chart.addSeries(HistogramSeries, {
       priceScaleId: 'volume',
