@@ -973,3 +973,9 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
   .topbar .price { order: -1; margin: 0; display: flex; flex-direction: column; line-height: 1.15; font-size: 12px; }
   .sync-modal .sync-qr { width: 180px; height: 180px; }
 }
+
+/* ---------- Мосбиржа: пометка «данные с задержкой» ---------- */
+.pane-delay { display: none; flex: none; padding: 1px 6px; border-radius: 4px; font-size: 11px; color: #ff9800; background: #ff980022; border: 1px solid #ff980055; cursor: help; white-space: nowrap; }
+.pane.delayed .pane-delay { display: inline-block; }
+.price .delay-note { display: block; font-size: 10px; color: #ff9800; cursor: help; }
+.price .delay-note[hidden] { display: none; }

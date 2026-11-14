@@ -55,7 +55,7 @@ export function initScreener({ container, getCurrent, onOpen, watchlist, isActiv
       <select class="sc-market" title="Биржа и рынок">${marketOptions()}</select>
       <button class="sc-filter-btn" title="Фильтры и столбцы">⚙ Фильтры</button>
       <div class="sc-filters">
-        <label>Оборот за 24ч от, млн $ <input type="number" data-k="minVol" min="0" step="any"></label>
+        <label>Оборот за 24ч от, млн $ (₽ для Мосбиржи) <input type="number" data-k="minVol" min="0" step="any"></label>
         <label>Изменение 24ч от, % <input type="number" data-k="chgMin" step="any" placeholder="любое"></label>
         <label>Изменение 24ч до, % <input type="number" data-k="chgMax" step="any" placeholder="любое"></label>
         <label>Размах 24ч от, % <input type="number" data-k="minRange" min="0" step="any" placeholder="любой"></label>

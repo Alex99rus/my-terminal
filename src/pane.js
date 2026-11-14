@@ -6,6 +6,7 @@ import {
 } from 'lightweight-charts'
 export { LineSeries, HistogramSeries }
 import { loadCandles, subscribeLive } from './binance.js'
+import { isDelayed } from './markets.js'
 import { draw, makeAdapter, DrawingsPrimitive, DrawingController } from './drawings.js'
 import { INDICATORS, indicatorLabel } from './indicators.js'
 import { TATable } from './traderAssistant.js'
@@ -30,6 +31,16 @@ const intervalInfo = (code) => INTERVALS.find((i) => i.code === code) || INTERVA
 const UP = '#26a69a'
 const DOWN = '#ef5350'
 
+function dataDecimals(bars) {
+  let d = 0
+  for (const b of bars.slice(-200))
+    for (const v of [b.open, b.high, b.low, b.close]) {
+      const s = String(+v.toFixed(6))
+      const i = s.indexOf('.')
+      if (i >= 0) d = Math.max(d, s.length - i - 1)
+    }
+  return d
+}
 function decimalsFor(price) {
   if (price >= 1000) return 2
   if (price >= 1) return 4
@@ -137,6 +148,7 @@ export class Pane {
         <select class="pane-interval">
           ${INTERVALS.map((i) => `<option value="${i.code}">${i.label}</option>`).join('')}
         </select>
+        <span class="pane-delay" title="Московская биржа бесплатно даёт данные с задержкой 15 минут. Без задержки — только по платной подписке биржи.">⏱ задержка 15 мин</span>
         <span class="pane-ohlc"></span>
       </div>
       <div class="pane-chart"></div>
@@ -482,6 +494,7 @@ export class Pane {
     this.volume.setData([])
     for (const e of this.indSeries) for (const l of e.lines) l.series.setData([])
     this.symbolEl.textContent = this.symbol
+    this.el.classList.toggle('delayed', isDelayed(this.market)) // пометка «данные с задержкой»
     this.ohlcEl.innerHTML = ''
     this.showStatus('Загрузка…')
 
@@ -490,7 +503,8 @@ export class Pane {
       if (id !== this.loadId) return
       if (!history.length) throw new Error('нет данных')
       this.bars = history
-      this.decimals = decimalsFor(history.at(-1).close)
+      // у бумаг Мосбиржи свой шаг цены (Сбер — 0,01, ВТБ — 0,000005): смотрим, сколько знаков в самих ценах
+      this.decimals = isDelayed(this.market) ? dataDecimals(history) : decimalsFor(history.at(-1).close)
       this.candles.applyOptions({
         priceFormat: { type: 'price', precision: this.decimals, minMove: 10 ** -this.decimals },
       })

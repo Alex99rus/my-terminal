@@ -1,6 +1,9 @@
 // Всё общение с биржей Binance — в этом файле.
 // Если рынок — Bybit ('bybit-futures', 'bybit-spot'), запрос уходит в bybit.js.
 import * as bybit from './bybit.js'
+import * as moex from './moex.js'
+const isMoex = (market) => market.startsWith('moex-')
+const moexMarket = (market) => market.slice('moex-'.length) // 'moex-shares' → 'shares'
 const isBybit = (market) => market.startsWith('bybit-')
 const bybitMarket = (market) => market.slice('bybit-'.length) // 'bybit-spot' → 'spot'
 // Ключи API не нужны: рыночные данные биржа отдаёт бесплатно всем.
@@ -35,6 +38,7 @@ function toBar(row) {
  * endTime — если указать, придут свечи ДО этого момента (для подгрузки истории влево).
  */
 export async function loadCandles(market, symbol, interval, endTime, limit = 1000) {
+  if (isMoex(market)) return moex.loadCandles(moexMarket(market), symbol, interval, endTime, limit)
   if (isBybit(market)) return bybit.loadCandles(bybitMarket(market), symbol, interval, endTime, limit)
   let url = `${REST[market]}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
   if (endTime) url += `&endTime=${endTime * 1000 - 1}`
@@ -46,6 +50,7 @@ export async function loadCandles(market, symbol, interval, endTime, limit = 100
 
 /** Список всех монет к USDT с ценой и изменением за сутки — для подсказок в поиске */
 export async function loadTickers(market) {
+  if (isMoex(market)) return moex.loadTickers(moexMarket(market))
   if (isBybit(market)) return bybit.loadTickers(bybitMarket(market))
   const res = await fetch(`${REST[market]}/ticker/24hr`)
   if (!res.ok) throw new Error(`Биржа ответила ошибкой ${res.status}`)
@@ -57,6 +62,7 @@ export async function loadTickers(market) {
 
 /** Данные за сутки по одной монете: изменение цены в % */
 export async function loadTicker(market, symbol) {
+  if (isMoex(market)) return moex.loadTicker(moexMarket(market), symbol)
   if (isBybit(market)) return bybit.loadTicker(bybitMarket(market), symbol)
   const res = await fetch(`${REST[market]}/ticker/24hr?symbol=${symbol}`)
   if (!res.ok) throw new Error(`Биржа ответила ошибкой ${res.status}`)
@@ -74,6 +80,7 @@ export async function loadTicker(market, symbol) {
  * Возвращает функцию «отписаться».
  */
 export function subscribeLive(market, symbol, interval, { onKline, onTrade, onStatus }) {
+  if (isMoex(market)) return moex.subscribeLive(moexMarket(market), symbol, interval, { onKline, onTrade, onStatus })
   if (isBybit(market)) return bybit.subscribeLive(bybitMarket(market), symbol, interval, { onKline, onTrade, onStatus })
   const s = symbol.toLowerCase()
   return subscribeStreams(market, [`${s}@kline_${interval}`, `${s}@aggTrade`], (msg) => {
@@ -94,6 +101,7 @@ export function subscribeLive(market, symbol, interval, { onKline, onTrade, onSt
  * onTicker получает { symbol, last, open, quoteVolume } (изменение за 24 часа = last к open).
  */
 export function subscribeTickers(market, symbols, onTicker, onStatus) {
+  if (isMoex(market)) return moex.subscribeTickers(moexMarket(market), symbols, onTicker, onStatus)
   if (isBybit(market)) return bybit.subscribeTickers(bybitMarket(market), symbols, onTicker, onStatus)
   const streams = symbols.map((s) => `${s.toLowerCase()}@miniTicker`)
   return subscribeStreams(market, streams, (t) => {

@@ -10,7 +10,7 @@ import { initIndicatorsDialog } from './indicatorsDialog.js'
 import { initWatchlist } from './watchlist.js'
 import { initScreener } from './screener.js'
 import { initAlerts } from './alerts.js'
-import { MARKETS, marketOptions } from './markets.js'
+import { MARKETS, marketOptions, isMoex, isDelayed, DEFAULT_SYMBOL } from './markets.js'
 import { openChartSettings, onStyleChange } from './chartSettings.js'
 import { paper } from './paper.js'
 import { initPaperUI } from './paperUI.js'
@@ -34,6 +34,7 @@ const state = {
   indicators: saved.indicators || [], // индикаторы — одни и те же во всех окнах
   volume: saved.volume !== false, // объём внизу графика
   snap: { what: 'active', scale: '3', to: 'file', ...saved.snap }, // настройки снимка
+  lastSymbol: saved.lastSymbol || {}, // последняя открытая монета на каждом рынке
   sizes: saved.sizes || {}, // размеры окон для каждой раскладки: { '4': { cols: [..], rows: [..] } }
 }
 
@@ -229,8 +230,11 @@ for (const btn of document.querySelectorAll('[data-sync]')) {
 
 // ---------- Поле «монета» ----------
 function applySymbol() {
-  const s = symbolInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+  let s = symbolInput.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
   if (!s || !activePane) return
+  // настоящее написание из подсказок (у фьючерсов Мосбиржи есть строчные буквы: SiZ6)
+  const known = [...$('symbols').options].find((o) => o.value.toUpperCase() === s)
+  if (known) s = known.value
   symbolInput.blur()
   openSymbol(s, state.market)
 }
@@ -242,6 +246,7 @@ function openSymbol(symbol, market) {
     state.market = market
     marketSelect.value = market
     fillSymbols()
+    showDelayNote(true)
   }
   const targets = state.sync.symbol ? panes : [activePane]
   for (const p of panes) p.setSymbol(targets.includes(p) ? symbol : p.symbol, state.market)
@@ -289,14 +294,34 @@ chartTypeSelect.onchange = () => {
 // ---------- Рынок ----------
 marketSelect.innerHTML = marketOptions()
 marketSelect.value = state.market
-marketSelect.onchange = () => {
+marketSelect.onchange = async () => {
+  const prev = state.market
   state.market = marketSelect.value
-  for (const p of panes) p.setSymbol(p.symbol, state.market)
+  // крипта и Мосбиржа — разные инструменты: открываем подходящий (или тот, что был открыт там раньше)
+  if (isMoex(prev) !== isMoex(state.market) || (isMoex(state.market) && prev !== state.market)) {
+    state.lastSymbol = { ...state.lastSymbol, [prev]: activePane?.symbol }
+    let symbol = state.lastSymbol[state.market] || DEFAULT_SYMBOL[state.market]
+    if (!symbol && isMoex(state.market)) symbol = (await loadTickers(state.market).catch(() => []))[0]?.symbol
+    symbol ||= 'BTCUSDT'
+    for (const p of panes) p.setSymbol(symbol, state.market)
+    symbolInput.value = symbol
+    document.title = `${symbol} — Мой терминал`
+  } else for (const p of panes) p.setSymbol(p.symbol, state.market)
+  showDelayNote(true)
   fillSymbols()
   updateChange()
   save()
   afterSymbolChange()
 }
+
+// ---------- Пометка о задержке данных (Мосбиржа) ----------
+function showDelayNote(announce) {
+  const delayed = isDelayed(state.market)
+  $('delayNote').hidden = !delayed
+  if (delayed && announce)
+    toast('⏱ Данные Мосбиржи — с задержкой 15 минут: без задержки биржа отдаёт их только по платной подписке', 7000)
+}
+showDelayNote(false)
 
 // ---------- Цена вверху ----------
 let dayOpen = null
@@ -397,12 +422,12 @@ async function takeSnapshot() {
 }
 
 let toastTimer
-function toast(text) {
+function toast(text, ms = 3500) {
   const el = $('toast')
   el.textContent = text
   el.classList.add('show')
   clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => el.classList.remove('show'), 3500)
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms)
 }
 
 // ---------- Настройки графика ----------
