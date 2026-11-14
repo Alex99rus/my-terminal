@@ -43,7 +43,14 @@ export class CountdownPrimitive {
   }
   attached({ requestUpdate }) {
     this._request = requestUpdate
-    this._timer = setInterval(() => requestUpdate(), 1000) // раз в секунду обновляем цифры
+    // раз в секунду обновляем цифры; если окно закрыли (график удалён) — таймер останавливаем
+    this._timer = setInterval(() => {
+      try {
+        requestUpdate()
+      } catch {
+        clearInterval(this._timer)
+      }
+    }, 1000)
   }
   detached() {
     clearInterval(this._timer)

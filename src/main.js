@@ -1,6 +1,7 @@
 // Главный файл: раскладка окон, верхняя панель и синхронизация окон между собой.
 // sync.js подключаем первым: он следит за сохранением данных, чтобы отправлять их на другие устройства
 import { initSync, openSyncDialog, onSyncStatus, syncStatus } from './sync.js'
+import { openHelp } from './help.js'
 import { Pane, fmt, CHART_TYPES } from './pane.js'
 import { loadTickers, loadTicker } from './binance.js'
 import { LAYOUTS, LAYOUT_ORDER, LETTERS, paneCount, applyGridTemplate, createSplitters } from './layout.js'
@@ -504,6 +505,16 @@ initPaperUI({
 
 // ---------- Рисование ----------
 initToolbar({ getActiveKey: () => activePane?.key, getPanes: () => panes })
+
+// ---------- Видеоинструкция ----------
+$('helpBtn').onclick = () => openHelp()
+// новичку один раз подсказываем, где инструкция
+try {
+  if (!localStorage.getItem('my-terminal-help-seen')) {
+    localStorage.setItem('my-terminal-help-seen', '1')
+    setTimeout(() => toast('👋 Впервые здесь? Нажмите «❓ Помощь» — там короткие видео о каждой функции', 7000), 2500)
+  }
+} catch {}
 
 // ---------- Синхронизация устройств ----------
 $('syncBtn').onclick = () => openSyncDialog()
