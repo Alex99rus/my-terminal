@@ -17,6 +17,7 @@ function loadState() {
     current: id,
     open: window.innerWidth > 700, // на телефоне сначала свёрнут
     sort: null, // { col: 'symbol' | 'last' | 'change', dir: 1 | -1 } или null — свой порядок
+    width: 300, // ширина панели в пикселях
   }
 }
 
@@ -47,9 +48,11 @@ export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange }) {
   // ---------- Разметка ----------
   const panel = document.getElementById('watchlist')
   panel.innerHTML = `
+    <div class="wl-resize" title="Тяните, чтобы изменить ширину. Двойной щелчок — обычная ширина"></div>
     <div class="wl-head">
       <select class="wl-lists" title="Список"></select>
       <button class="wl-menu-btn" title="Списки: создать, переименовать, удалить">⋯</button>
+      <button class="wl-hide" title="Скрыть список (Alt+W)">»</button>
       <div class="wl-menu">
         <button data-act="new">➕ Новый список</button>
         <button data-act="rename">✏️ Переименовать</button>
@@ -77,11 +80,51 @@ export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange }) {
     panel.classList.toggle('open', state.open)
     toggleBtn.classList.toggle('active', state.open)
   }
-  toggleBtn.onclick = () => {
+  function toggle() {
     state.open = !state.open
     applyOpen()
     save()
   }
+  toggleBtn.onclick = toggle
+  panel.querySelector('.wl-hide').onclick = toggle
+  document.addEventListener('keydown', (e) => {
+    if (e.altKey && e.code === 'KeyW') {
+      e.preventDefault()
+      toggle()
+    }
+  })
+
+  // ---------- Ширина: тянем левую границу ----------
+  const MIN_W = 200
+  const MAX_W = 600
+  const applyWidth = () => (panel.style.width = (state.width || 300) + 'px')
+  const handle = panel.querySelector('.wl-resize')
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault()
+    handle.setPointerCapture(e.pointerId)
+    const startX = e.clientX
+    const startW = panel.offsetWidth
+    document.body.classList.add('resizing-v')
+    const move = (ev) => {
+      // панель справа: тянем влево — шире
+      state.width = Math.max(MIN_W, Math.min(MAX_W, startW + (startX - ev.clientX)))
+      applyWidth()
+    }
+    const up = () => {
+      handle.removeEventListener('pointermove', move)
+      handle.removeEventListener('pointerup', up)
+      document.body.classList.remove('resizing-v')
+      save()
+    }
+    handle.addEventListener('pointermove', move)
+    handle.addEventListener('pointerup', up)
+  })
+  handle.addEventListener('dblclick', () => {
+    state.width = 300
+    applyWidth()
+    save()
+  })
+  applyWidth()
 
   // ---------- Списки ----------
   function renderLists() {
