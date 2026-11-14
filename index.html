@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Мой терминал</title>
+  </head>
+  <body>
+    <!-- Верхняя панель -->
+    <header class="topbar">
+      <div class="logo">📈 Мой терминал</div>
+
+      <input id="symbol" class="symbol" list="symbols" placeholder="Монета, например BTCUSDT" autocomplete="off" />
+      <datalist id="symbols"></datalist>
+
+      <select id="market" class="market">
+        <option value="futures">Фьючерсы</option>
+        <option value="spot">Спот</option>
+      </select>
+
+      <!-- Тип графика — сразу для всех окон -->
+      <select id="chartType" class="market" title="Тип графика (для всех окон)"></select>
+
+      <!-- Раскладка окон: одна кнопка, по нажатию — меню со всеми раскладками -->
+      <div class="layout-pick">
+        <button id="layoutBtn" class="layout-btn" title="Раскладка окон">
+          <span id="layoutCurrent"></span><span class="arrow">▾</span>
+        </button>
+        <div id="layouts" class="layouts-menu"></div>
+      </div>
+
+      <!-- Кнопки синхронизации -->
+      <div class="sync">
+        <button data-sync="symbol" title="Одна монета во всех окнах">🔗 Монета</button>
+        <button data-sync="crosshair" title="Перекрестие мыши видно во всех окнах">✛ Перекрестие</button>
+        <button data-sync="time" title="Прокрутка одного окна сдвигает остальные к тому же времени">⏱ Время</button>
+      </div>
+
+      <!-- Снимок экрана -->
+      <div class="snap">
+        <button id="snapBtn" title="Снимок активного окна (Alt+S)">📷 Снимок</button>
+        <button id="snapMenuBtn" class="snap-arrow" title="Другие варианты снимка">▾</button>
+        <div id="snapMenu" class="snap-menu">
+          <div class="snap-title">Что снимать</div>
+          <label><input type="radio" name="snapWhat" value="active" /> Активное окно</label>
+          <label><input type="radio" name="snapWhat" value="all" /> Все окна одной картинкой</label>
+          <div class="snap-title">Качество</div>
+          <div class="snap-scales">
+            <label><input type="radio" name="snapScale" value="2" /> ×2</label>
+            <label><input type="radio" name="snapScale" value="3" /> ×3</label>
+            <label><input type="radio" name="snapScale" value="4" /> ×4</label>
+          </div>
+          <div class="snap-size" id="snapSize"></div>
+          <div class="snap-title">Куда</div>
+          <label><input type="radio" name="snapTo" value="file" /> Скачать PNG-файл</label>
+          <label><input type="radio" name="snapTo" value="clipboard" /> Копировать (потом Ctrl+V)</label>
+          <button id="snapGo" class="snap-go">Сделать снимок</button>
+        </div>
+      </div>
+
+      <div class="price">
+        <span id="last">—</span>
+        <span id="change"></span>
+      </div>
+    </header>
+
+    <!-- Сюда добавляются окна графиков -->
+    <main id="grid" class="grid"></main>
+
+    <!-- Всплывающее сообщение -->
+    <div id="toast" class="toast"></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
