@@ -13,8 +13,9 @@ const ICONS = {
   ray: svg('<path d="M6 18L21 3"/><circle cx="5" cy="19" r="2"/><circle cx="12" cy="12" r="2"/>'),
   rect: svg('<rect x="4" y="6" width="16" height="12" rx="1"/>'),
   fib: svg('<path d="M3 5h18M3 9.5h18M3 14h18M3 19h18"/>'),
-  long: svg('<path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="5" width="12" height="7" rx="1" fill="#26a69a55" stroke="#26a69a"/><rect x="7" y="12" width="12" height="4" rx="1" fill="#ef535055" stroke="#ef5350"/>'),
-  short: svg('<path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="5" width="12" height="4" rx="1" fill="#ef535055" stroke="#ef5350"/><rect x="7" y="9" width="12" height="7" rx="1" fill="#26a69a55" stroke="#26a69a"/>'),
+  // лонг — зелёная стрелка вверх, шорт — красная стрелка вниз
+  long: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#26a69a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5"/><path d="M5 11l7-7 7 7"/></svg>',
+  short: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#ef5350" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v15"/><path d="M5 13l7 7 7-7"/></svg>',
   ruler: svg('<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>'),
   text: svg('<path d="M5 6V4h14v2M12 4v16M9 20h6"/>'),
   alert: svg('<path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 004 0"/>'),
