@@ -19,7 +19,10 @@ export const DEFAULT_STYLE = {
   text: '#d1d4dc',
   fontSize: 12,
   barThickness: 1, // толщина баров OHLC: 1–4 пикселя, 0 — авто (толще при приближении)
-  rightOffset: 8, // отступ справа от последней свечи (в барах)
+  rightOffset: 8,
+  // верхняя панель: подписи на кнопках и какие кнопки показывать
+  tbLabels: 'auto', // auto — убирать подписи, когда не помещается; on — всегда; off — только значки
+  tbLogo: true, tbChartType: true, tbSync: true, tbSnap: true, tbPaper: true, tbPhone: true, tbHelp: true, tbList: true, tbPrice: true, // отступ справа от последней свечи (в барах)
   // линии
   periodLines: true, // границы дня / недели / месяца / года
   periodColor: '#3a3f4b',
@@ -92,6 +95,18 @@ const SECTIONS = [
     ['lastPriceLine', 'Линия текущей цены', 'check'],
     ['priceLabel', 'Метка цены на шкале', 'check'],
     ['countdown', 'Таймер до закрытия свечи', 'check'],
+  ]],
+  ['Верхняя панель (для маленьких экранов)', [
+    ['tbLabels', 'Подписи на кнопках (авто — убирать, если не помещаются)', 'select', [['auto', 'авто'], ['on', 'всегда'], ['off', 'только значки']]],
+    ['tbLogo', 'Название «Мой терминал»', 'check'],
+    ['tbChartType', 'Тип графика (свечи, бары…)', 'check'],
+    ['tbSync', 'Синхронизация окон (🔗 ✛ ⏱)', 'check'],
+    ['tbSnap', 'Снимок 📷', 'check'],
+    ['tbPaper', 'Демо-счёт 💼', 'check'],
+    ['tbPhone', 'Телефон 📱', 'check'],
+    ['tbHelp', 'Помощь ❓', 'check'],
+    ['tbList', 'Кнопка «☰ Список»', 'check'],
+    ['tbPrice', 'Цена справа', 'check'],
   ]],
   ['Объём', [
     ['volumeOpacity', 'Яркость столбиков объёма', 'select', [[25, '25%'], [50, '50%'], [75, '75%'], [100, '100%']]],

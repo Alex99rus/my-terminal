@@ -14,7 +14,7 @@ import { initWatchlist } from './watchlist.js'
 import { initScreener } from './screener.js'
 import { initAlerts } from './alerts.js'
 import { MARKETS, marketOptions, isMoex, isDelayed, DEFAULT_SYMBOL } from './markets.js'
-import { openChartSettings, onStyleChange } from './chartSettings.js'
+import { openChartSettings, onStyleChange, style } from './chartSettings.js'
 import { paper } from './paper.js'
 import { initPaperUI } from './paperUI.js'
 import './style.css'
@@ -520,6 +520,43 @@ initPaperUI({
 
 // ---------- Рисование ----------
 initToolbar({ getActiveKey: () => activePane?.key, getPanes: () => panes })
+
+// ---------- Верхняя панель: на маленьких экранах — без подписей, компактно, с прокруткой ----------
+const topbar = document.querySelector('.topbar')
+const TB_PARTS = { tbLogo: 'logo', tbChartType: 'charttype', tbSync: 'sync', tbSnap: 'snap', tbPaper: 'paper', tbPhone: 'phone', tbHelp: 'help', tbList: 'list', tbPrice: 'price' }
+function topbarWraps() {
+  const items = [...topbar.children].filter((el) => el.offsetParent !== null && el.tagName !== 'DATALIST')
+  if (!items.length) return false
+  const top = items[0].offsetTop
+  return items.some((el) => el.offsetTop > top + 12)
+}
+function fitTopbar() {
+  const b = document.body
+  for (const [key, part] of Object.entries(TB_PARTS)) b.classList.toggle('tb-hide-' + part, style[key] === false)
+  b.classList.remove('tb-short', 'tb-icons', 'tb-tight', 'tb-scroll')
+  const mode = style.tbLabels || 'auto'
+  if (mode === 'off') b.classList.add('tb-icons')
+  if (mode !== 'auto') {
+    if (topbarWraps()) b.classList.add('tb-scroll')
+    return
+  }
+  // авто: по шагам ужимаем панель, пока она не влезет в одну строку
+  for (const cls of ['tb-short', 'tb-icons', 'tb-tight', 'tb-scroll']) {
+    if (!topbarWraps()) break
+    b.classList.add(cls)
+  }
+}
+const tbObserver = new ResizeObserver(() => requestAnimationFrame(fitTopbar))
+tbObserver.observe(document.body)
+tbObserver.observe(topbar) // содержимое панели тоже меняется (счётчик оповещений, цена)
+// в режиме прокрутки колесо мыши листает панель вбок
+topbar.addEventListener('wheel', (e) => {
+  if (!document.body.classList.contains('tb-scroll') || !e.deltaY || e.target.closest('.layouts-menu, .snap-menu, .alerts-menu')) return
+  topbar.scrollLeft += e.deltaY
+  e.preventDefault()
+}, { passive: false })
+onStyleChange(fitTopbar)
+fitTopbar()
 
 // ---------- Видеоинструкция ----------
 $('helpBtn').onclick = () => openHelp()

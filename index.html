@@ -17,7 +17,7 @@
   <body>
     <!-- Верхняя панель -->
     <header class="topbar">
-      <div class="logo">📈 Мой терминал</div>
+      <div class="logo tb-logo">📈<span class="lbl"> Мой терминал</span></div>
 
       <input id="symbol" class="symbol" list="symbols" placeholder="Монета, например BTCUSDT" autocomplete="off" />
       <button id="starBtn" class="star-btn" title="Добавить в список">☆</button>
@@ -26,13 +26,13 @@
       <select id="market" class="market" title="Биржа и рынок"></select>
 
       <!-- Тип графика — сразу для всех окон -->
-      <select id="chartType" class="market" title="Тип графика (для всех окон)"></select>
+      <select id="chartType" class="market tb-charttype" title="Тип графика (для всех окон)"></select>
 
       <!-- Настройки внешнего вида графика -->
       <button id="settingsBtn" class="ind-btn" title="Настройки графика: цвета, линии, фон">⚙</button>
 
       <!-- Индикаторы -->
-      <button id="indBtn" class="ind-btn" title="Индикаторы">ƒx Индикаторы</button>
+      <button id="indBtn" class="ind-btn" title="Индикаторы">ƒx<span class="lbl"> Индикаторы</span></button>
 
       <!-- Раскладка окон: одна кнопка, по нажатию — меню со всеми раскладками -->
       <div class="layout-pick">
@@ -43,15 +43,15 @@
       </div>
 
       <!-- Кнопки синхронизации -->
-      <div class="sync">
-        <button data-sync="symbol" title="Одна монета во всех окнах">🔗 Монета</button>
-        <button data-sync="crosshair" title="Перекрестие мыши видно во всех окнах">✛ Перекрестие</button>
-        <button data-sync="time" title="Прокрутка одного окна сдвигает остальные к тому же времени">⏱ Время</button>
+      <div class="sync tb-sync">
+        <button data-sync="symbol" title="Одна монета во всех окнах">🔗<span class="lbl"> Монета</span></button>
+        <button data-sync="crosshair" title="Перекрестие мыши видно во всех окнах">✛<span class="lbl"> Перекрестие</span></button>
+        <button data-sync="time" title="Прокрутка одного окна сдвигает остальные к тому же времени">⏱<span class="lbl"> Время</span></button>
       </div>
 
       <!-- Снимок экрана -->
-      <div class="snap">
-        <button id="snapBtn" title="Снимок активного окна (Alt+S)">📷 Снимок</button>
+      <div class="snap tb-snap">
+        <button id="snapBtn" title="Снимок активного окна (Alt+S)">📷<span class="lbl"> Снимок</span></button>
         <button id="snapMenuBtn" class="snap-arrow" title="Другие варианты снимка">▾</button>
         <div id="snapMenu" class="snap-menu">
           <div class="snap-title">Что снимать</div>
@@ -77,12 +77,12 @@
         <div id="alertsMenu" class="alerts-menu"></div>
       </div>
 
-      <button id="paperBtn" class="ind-btn" title="Демо-счёт: виртуальная торговля">💼 Демо</button>
-      <button id="syncBtn" class="ind-btn" title="Синхронизация с телефоном и другими устройствами">📱 Телефон <span class="dot"></span></button>
-      <button id="helpBtn" class="ind-btn help-btn" title="Видеоинструкция и связь с разработчиком">❓ Помощь</button>
-      <button id="wlToggle" class="ind-btn" title="Список монет">☰ Список</button>
+      <button id="paperBtn" class="ind-btn tb-paper" title="Демо-счёт: виртуальная торговля">💼<span class="lbl"> Демо</span></button>
+      <button id="syncBtn" class="ind-btn tb-phone" title="Синхронизация с телефоном и другими устройствами">📱<span class="lbl"> Телефон</span> <span class="dot"></span></button>
+      <button id="helpBtn" class="ind-btn help-btn tb-help" title="Видеоинструкция и связь с разработчиком">❓<span class="lbl"> Помощь</span></button>
+      <button id="wlToggle" class="ind-btn tb-list" title="Список монет">☰<span class="lbl"> Список</span></button>
 
-      <div class="price">
+      <div class="price tb-price">
         <span id="last">—</span>
         <span id="change"></span>
         <span id="delayNote" class="delay-note" hidden title="Московская биржа бесплатно даёт данные с задержкой 15 минут. Без задержки — только по платной подписке биржи.">⏱ задержка 15 мин</span>

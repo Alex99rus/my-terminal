@@ -1061,3 +1061,23 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
 .pine-table { position: absolute; pointer-events: auto; }
 .pine-table table { border-collapse: collapse; }
 .pine-table td { padding: 2px 6px; white-space: nowrap; }
+
+/* ---------- Верхняя панель: скрытые кнопки и компактные режимы ---------- */
+.tb-hide-logo .tb-logo, .tb-hide-charttype .tb-charttype, .tb-hide-sync .tb-sync, .tb-hide-snap .tb-snap,
+.tb-hide-paper .tb-paper, .tb-hide-phone .tb-phone, .tb-hide-help .tb-help, .tb-hide-list .tb-list, .tb-hide-price .tb-price { display: none !important; }
+/* сначала убираем подписи у второстепенных кнопок */
+.tb-short .topbar :is(.tb-logo, .tb-sync, .tb-phone, .tb-help, .tb-list) .lbl { display: none; }
+/* только значки (подпись видна во всплывающей подсказке) */
+.tb-icons .topbar .lbl { display: none; }
+.tb-icons .topbar .sync button, .tb-icons .topbar .ind-btn, .tb-icons #snapBtn { padding-left: 8px; padding-right: 8px; }
+/* плотнее */
+.tb-tight .topbar { gap: 5px; padding: 5px 8px; }
+.tb-tight .topbar .logo { display: none; }
+.tb-tight .topbar .symbol { width: 120px; }
+.tb-tight .topbar .market { max-width: 150px; }
+.tb-tight .topbar .price { font-size: 13px; }
+/* последний шаг — одна строка с прокруткой пальцем / колесом */
+.tb-scroll .topbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.tb-scroll .topbar::-webkit-scrollbar { display: none; }
+.tb-scroll .topbar > * { flex: none; }
+.tb-scroll .topbar .layouts-menu, .tb-scroll .topbar .snap-menu, .tb-scroll .topbar .alerts-menu { position: fixed; top: 46px; left: auto; right: 8px; }
