@@ -21,6 +21,7 @@ export const DEFAULT_STYLE = {
   barThickness: 1, // толщина баров OHLC: 1–4 пикселя, 0 — авто (толще при приближении)
   rightOffset: 8,
   // верхняя панель: подписи на кнопках и какие кнопки показывать
+  navPill: true, // кнопки ‹ › «предыдущая / следующая монета» на графике
   tbLabels: 'auto', // auto — убирать подписи, когда не помещается; on — всегда; off — только значки
   tbLogo: true, tbChartType: true, tbSync: true, tbSnap: true, tbPaper: true, tbPhone: true, tbHelp: true, tbList: true, tbPrice: true, // отступ справа от последней свечи (в барах)
   // линии
@@ -107,6 +108,7 @@ const SECTIONS = [
     ['tbHelp', 'Помощь ❓', 'check'],
     ['tbList', 'Кнопка «☰ Список»', 'check'],
     ['tbPrice', 'Цена справа', 'check'],
+    ['navPill', 'Кнопки ‹ › «следующая монета» на графике', 'check'],
   ]],
   ['Объём', [
     ['volumeOpacity', 'Яркость столбиков объёма', 'select', [[25, '25%'], [50, '50%'], [75, '75%'], [100, '100%']]],

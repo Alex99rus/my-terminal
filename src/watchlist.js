@@ -414,6 +414,14 @@ export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange, onV
     get view() {
       return state.open ? state.view || 'list' : null
     },
+    // для кнопок «предыдущий / следующий»: последняя открытая вкладка и монеты списка в показанном порядке
+    get source() {
+      return state.view || 'list'
+    },
+    get listName() {
+      return list().name
+    },
+    symbols: () => ordered().map((it) => ({ symbol: it.symbol, market: it.market })),
     // ☆ рядом с названием монеты: есть ли монета в текущем списке, добавить/убрать
     has: (symbol, market) => list().items.some((it) => it.symbol === symbol && it.market === market),
     toggle(symbol, market) {

@@ -30,7 +30,7 @@ const ICONS = {
  * getActiveKey() — монета активного окна (для «Удалить все рисунки»)
  * getPanes() — все окна (чтобы отменить незаконченный рисунок по Esc)
  */
-export function initToolbar({ getActiveKey, getPanes }) {
+export function initToolbar({ getActiveKey, getPanes, onStep }) {
   const bar = document.getElementById('toolbar')
   const props = document.getElementById('drawProps')
 
@@ -69,6 +69,20 @@ export function initToolbar({ getActiveKey, getPanes }) {
     if (confirm(`Удалить все рисунки ${key.split(':')[1]}?`)) draw.clear(key)
   }
   bar.append(magnetBtn, hideBtn, clearBtn)
+
+  // Предыдущая / следующая монета из списка или скринера
+  if (onStep) {
+    bar.append(Object.assign(document.createElement('div'), { className: 'sep' }))
+    const chevron = (d) => `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`
+    for (const [dir, icon, title] of [[-1, chevron('M5 12.5 10 7.5l5 5'), 'Предыдущая монета из списка / скринера (Alt+↑)'], [1, chevron('M5 7.5l5 5 5-5'), 'Следующая монета из списка / скринера (Alt+↓)']]) {
+      const b = document.createElement('button')
+      b.className = 'step-btn'
+      b.innerHTML = icon
+      b.title = title
+      b.onclick = () => onStep(dir)
+      bar.append(b)
+    }
+  }
 
   // Ссылка на TradingView — так требует лицензия библиотеки графиков Lightweight Charts
   const credit = document.createElement('a')

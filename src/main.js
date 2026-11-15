@@ -268,6 +268,7 @@ function afterSymbolChange() {
   $('starBtn').textContent = inList ? '★' : '☆'
   $('starBtn').classList.toggle('active', !!inList)
   $('starBtn').title = inList ? 'Убрать из списка' : 'Добавить в список'
+  setTimeout(() => updateNavPill().catch(() => {})) // при самом первом запуске кнопки ‹ › ещё не созданы
 }
 symbolInput.addEventListener('change', applySymbol)
 symbolInput.addEventListener('keydown', (e) => e.key === 'Enter' && applySymbol())
@@ -460,16 +461,20 @@ $('indBtn').classList.toggle('active', state.indicators.length > 0)
 
 // ---------- Список монет ----------
 let watchlist = null
-let screener = null // скринер создаётся сразу после списка (он во вкладке той же панели)
+let screener = null
+let navPill = null // кнопки ‹ › «предыдущая / следующая монета» (создаются ниже)
 watchlist = initWatchlist({
   getCurrent: () => activePane && { symbol: activePane.symbol, market: activePane.market },
   getMarket: () => state.market,
   onOpen: (symbol, market) => openSymbol(symbol, market),
   onListChange: () => {
-    afterSymbolChange()
+    afterSymbolChange() // заодно обновит счётчик «3 из 12» у кнопок ‹ ›
     screener?.render()
   },
-  onViewChange: (v) => v === 'screener' && screener?.activate(),
+  onViewChange: (v) => {
+    if (v === 'screener') screener?.activate()
+    updateNavPill()
+  },
 })
 // Скринер — вкладка в той же правой панели
 screener = initScreener({
@@ -480,6 +485,55 @@ screener = initScreener({
   isActive: () => watchlist.view === 'screener',
 })
 if (watchlist.view === 'screener') screener.activate()
+// ---------- «Предыдущая / следующая монета» из списка или скринера ----------
+// Источник — та вкладка правой панели, что открывали последней («Список» или «Скринер»)
+navPill = document.createElement('div')
+navPill.className = 'nav-pill'
+navPill.innerHTML = `<button class="nav-prev" title="Предыдущая монета (Alt+↑)">‹</button><span class="nav-info"></span><button class="nav-next" title="Следующая монета (Alt+↓)">›</button>`
+$('grid').append(navPill)
+let navBusy = false
+async function navInfo() {
+  const src = watchlist.source
+  const items = src === 'screener' ? await screener.list() : watchlist.symbols()
+  const i = activePane ? items.findIndex((it) => it.symbol === activePane.symbol && it.market === activePane.market) : -1
+  return { src, items, i, name: src === 'screener' ? 'Скринер' : watchlist.listName }
+}
+async function stepSymbol(dir) {
+  if (navBusy) return
+  navBusy = true
+  try {
+    const { items, i, name } = await navInfo()
+    if (!items.length) return toast(`В «${name}» нет монет`)
+    const j = i < 0 ? (dir > 0 ? 0 : items.length - 1) : (i + dir + items.length) % items.length
+    openSymbol(items[j].symbol, items[j].market)
+    updateNavPill()
+  } catch {
+    toast('Не удалось получить список монет')
+  } finally {
+    navBusy = false
+  }
+}
+async function updateNavPill() {
+  if (!navPill) return
+  navPill.hidden = style.navPill === false
+  if (navPill.hidden) return
+  try {
+    const { items, i, name } = await navInfo()
+    navPill.querySelector('.nav-info').textContent = `${name}${items.length ? ` · ${i >= 0 ? i + 1 : '–'} из ${items.length}` : ''}`
+  } catch {}
+}
+navPill.querySelector('.nav-prev').onclick = () => stepSymbol(-1)
+navPill.querySelector('.nav-next').onclick = () => stepSymbol(1)
+addEventListener('keydown', (e) => {
+  if (!e.altKey || e.target.closest?.('input, textarea, select')) return
+  if (e.key === 'ArrowDown') stepSymbol(1)
+  else if (e.key === 'ArrowUp') stepSymbol(-1)
+  else return
+  e.preventDefault()
+})
+onStyleChange(updateNavPill)
+setTimeout(updateNavPill, 1500)
+
 $('starBtn').onclick = () => activePane && watchlist.toggle(activePane.symbol, activePane.market)
 afterSymbolChange()
 
@@ -519,7 +573,7 @@ initPaperUI({
 })
 
 // ---------- Рисование ----------
-initToolbar({ getActiveKey: () => activePane?.key, getPanes: () => panes })
+initToolbar({ getActiveKey: () => activePane?.key, getPanes: () => panes, onStep: (d) => stepSymbol(d) })
 
 // ---------- Верхняя панель: на маленьких экранах — без подписей, компактно, с прокруткой ----------
 const topbar = document.querySelector('.topbar')
@@ -535,6 +589,7 @@ function fitTopbar() {
   for (const [key, part] of Object.entries(TB_PARTS)) b.classList.toggle('tb-hide-' + part, style[key] === false)
   b.classList.remove('tb-short', 'tb-icons', 'tb-tight', 'tb-scroll')
   const mode = style.tbLabels || 'auto'
+  b.classList.toggle('tb-labels-on', mode === 'on')
   if (mode === 'off') b.classList.add('tb-icons')
   if (mode !== 'auto') {
     if (topbarWraps()) b.classList.add('tb-scroll')

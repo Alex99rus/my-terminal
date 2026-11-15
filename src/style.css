@@ -1081,3 +1081,21 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
 .tb-scroll .topbar::-webkit-scrollbar { display: none; }
 .tb-scroll .topbar > * { flex: none; }
 .tb-scroll .topbar .layouts-menu, .tb-scroll .topbar .snap-menu, .tb-scroll .topbar .alerts-menu { position: fixed; top: 46px; left: auto; right: 8px; }
+
+/* ---------- Предыдущая / следующая монета ---------- */
+.toolbar .step-btn { font-size: 15px; color: var(--accent); }
+.nav-pill {
+  position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%); z-index: 6;
+  display: flex; align-items: center; gap: 2px; padding: 3px;
+  background: rgba(19, 23, 34, .82); border: 1px solid var(--border); border-radius: 22px;
+  box-shadow: 0 4px 16px #0008; backdrop-filter: blur(4px); user-select: none;
+}
+.nav-pill[hidden] { display: none; }
+.nav-pill button {
+  width: 40px; height: 34px; border: none; border-radius: 18px; background: none; color: var(--text);
+  font-size: 24px; line-height: 1; cursor: pointer; touch-action: manipulation;
+}
+.nav-pill button:hover, .nav-pill button:active { background: var(--accent); color: #fff; }
+.nav-pill .nav-info { font-size: 12px; color: var(--muted); padding: 0 6px; white-space: nowrap; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 700px) { .nav-pill { bottom: 30px; } .nav-pill button { width: 52px; height: 42px; font-size: 28px; } }
+@media (max-width: 700px) { body:not(.tb-labels-on) .topbar .lbl { display: none; } }

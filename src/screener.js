@@ -241,6 +241,11 @@ export function initScreener({ container, getCurrent, onOpen, watchlist, isActiv
   })
 
   return {
+    // монеты скринера в показанном порядке (с фильтрами); если ещё не загружены — загрузить
+    async list() {
+      if (loadedFor !== st.market || !all.length) await load()
+      return filtered().map((r) => ({ symbol: r.symbol, market: st.market }))
+    },
     // вкладку открыли — сразу свежие данные
     activate() {
       if (loadedFor !== st.market || !all.length) load()
