@@ -1099,3 +1099,13 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
 .nav-pill .nav-info { font-size: 12px; color: var(--muted); padding: 0 6px; white-space: nowrap; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 700px) { .nav-pill { bottom: 30px; } .nav-pill button { width: 52px; height: 42px; font-size: 28px; } }
 @media (max-width: 700px) { body:not(.tb-labels-on) .topbar .lbl { display: none; } }
+
+/* ---------- Кнопка «к последней свече» ---------- */
+.to-end-btn {
+  position: absolute; z-index: 5; width: 34px; height: 34px; padding: 0; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 50%; background: rgba(30, 34, 45, .9); color: var(--text); cursor: pointer;
+  box-shadow: 0 3px 10px #0007;
+}
+.to-end-btn[hidden] { display: none; }
+.to-end-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+@media (max-width: 700px) { .to-end-btn { width: 42px; height: 42px; } }

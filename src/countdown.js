@@ -41,7 +41,8 @@ export class CountdownPrimitive {
     }
     this._views = [view]
   }
-  attached({ requestUpdate }) {
+  attached({ chart, requestUpdate }) {
+    this._chart = chart
     this._request = requestUpdate
     // раз в секунду обновляем цифры; если окно закрыли (график удалён) — таймер останавливаем
     this._timer = setInterval(() => {
@@ -67,6 +68,9 @@ export class CountdownPrimitive {
     const last = bars?.at(-1)
     const series = this.getSeries()
     if (!last || !series) return this._views
+    // последняя свеча за краем экрана (смотрим историю) — метка цены тоже не там, таймер прячем
+    const range = this._chart?.timeScale().getVisibleLogicalRange()
+    if (range && range.to < bars.length - 1) return this._views
     const left = last.time + this.getSec() - Date.now() / 1000
     // свеча уже должна была закрыться (например, биржа сейчас не торгует) — таймер не показываем
     if (left <= 0 || left > this.getSec()) return this._views

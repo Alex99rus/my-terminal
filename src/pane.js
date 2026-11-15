@@ -261,7 +261,33 @@ export class Pane {
       if (!range) return
       if (range.from < 30) this.loadMore()
       if (this.hovered) this.hooks.onScroll(this)
+      this.updateToEndBtn(range)
     })
+
+    // Кнопка «к последней свече» — появляется, когда ушли смотреть историю
+    this.toEndBtn = document.createElement('button')
+    this.toEndBtn.className = 'to-end-btn'
+    this.toEndBtn.title = 'К последней свече'
+    this.toEndBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5l5 5-5 5M10 5l5 5-5 5"/></svg>'
+    this.toEndBtn.hidden = true
+    this.toEndBtn.addEventListener('pointerdown', (e) => e.stopPropagation())
+    this.toEndBtn.onclick = (e) => {
+      e.stopPropagation()
+      this.scrollToRealtime()
+      // остальные окна (если включена синхронизация времени) — тоже к концу
+      requestAnimationFrame(() => this.hooks.onScroll(this))
+    }
+    this.chartEl.append(this.toEndBtn)
+  }
+
+  updateToEndBtn(range = this.chart.timeScale().getVisibleLogicalRange()) {
+    if (!this.toEndBtn || !range) return
+    const away = this.bars.length > 0 && range.to < this.bars.length - 2
+    this.toEndBtn.hidden = !away
+    if (away) {
+      this.toEndBtn.style.right = this.chart.priceScale('right').width() + 10 + 'px'
+      this.toEndBtn.style.bottom = this.chart.timeScale().height() + 10 + 'px'
+    }
   }
 
   // Главная серия (свечи, бары, линия…). При смене типа старую убираем и создаём новую.
