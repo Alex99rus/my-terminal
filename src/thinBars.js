@@ -14,9 +14,11 @@ class ThinBarsRenderer {
       const o = this.options
       if (!d?.visibleRange || !d.bars.length) return
       const k = o.thinScale || 1 // для снимков в высоком разрешении линии толще
-      const lw = Math.max(1, Math.floor(hr * k)) // толщина линии
+      // толщина из настроек: 1–4 пикселя или «авто» (растёт при приближении)
+      const css = o.thickness > 0 ? o.thickness : Math.max(1, Math.min(6, Math.round(d.barSpacing * 0.15)))
+      const lw = Math.max(1, Math.floor(hr * k * css)) // толщина линии
       const half = Math.floor(lw / 2)
-      const tick = Math.max(lw, Math.round(Math.min(d.barSpacing * 0.28, 10) * hr)) // длина засечки
+      const tick = Math.max(lw + 1, Math.round(Math.min(d.barSpacing * 0.28, 10) * hr)) // длина засечки
       const ticks = d.barSpacing >= 3 // при сильном отдалении — только палочки
       let color = null
       for (let i = d.visibleRange.from; i < d.visibleRange.to; i++) {
@@ -54,7 +56,7 @@ class ThinBarsView {
     return b.close === undefined
   }
   defaultOptions() {
-    return { upColor: '#26a69a', downColor: '#ef5350', color: '#26a69a', thinScale: 1 }
+    return { upColor: '#26a69a', downColor: '#ef5350', color: '#26a69a', thinScale: 1, thickness: 1 }
   }
 }
 

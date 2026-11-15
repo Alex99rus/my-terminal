@@ -73,7 +73,7 @@ export const CHART_TYPES = [
   {
     // тонкие бары, как в TradingView (рисуем сами — см. thinBars.js)
     code: 'bars', label: 'Бары', series: ThinBarSeries, point: ohlc,
-    options: (st) => ({ upColor: st.bodyUp, downColor: st.bodyDown, color: st.bodyUp }),
+    options: (st) => ({ upColor: st.bodyUp, downColor: st.bodyDown, color: st.bodyUp, thickness: +st.barThickness }),
   },
   { code: 'hollow', label: 'Пустые свечи', series: CandlestickSeries, point: ohlc, options: (st) => candleOptions(st, true) },
   { code: 'line', label: 'Линия', series: LineSeries, point: closeOnly, options: (st) => ({ color: st.lineColor, lineWidth: 2 }) },
