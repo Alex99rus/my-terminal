@@ -5,7 +5,8 @@
 // закрывает или переворачивает. Комиссия берётся с каждой сделки от её объёма в $.
 // Ордера: рыночный (сразу по текущей цене), лимитный (когда цена дойдёт до указанной или лучше),
 // стоп (когда цена пробьёт указанную). У позиции могут быть стоп-лосс и тейк-профит —
-// они закрывают её целиком по своей цене.
+// они закрывают её целиком: стоп-лосс — рыночный (по текущей цене, с проскальзыванием, комиссия тейкера),
+// тейк-профит — лимитный (ровно по своей цене, комиссия мейкера).
 import { subscribeTickers } from './binance.js'
 
 const STORAGE = 'my-terminal-paper'
@@ -14,7 +15,8 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const DEFAULT = {
   start: 10000, // стартовый баланс, $
   balance: 10000, // деньги без учёта открытых позиций (с учётом закрытых сделок и комиссий)
-  fee: 0.05, // комиссия, % от объёма сделки
+  fee: 0.05, // комиссия тейкера, % от объёма: рынок, стоп-лосс, стоп-ордер
+  makerFee: 0.02, // комиссия мейкера, %: лимитный ордер, тейк-профит
   leverage: 10,
   positions: [], // { key, side: 'long' | 'short', qty, entry, sl, tp, opened }
   orders: [], // { id, key, side: 'buy' | 'sell', type: 'limit' | 'stop', price, qty, sl, tp, created }
@@ -54,8 +56,9 @@ const pnlOf = (p, price) => (p.side === 'long' ? price - p.entry : p.entry - pri
 // ---------- Сделка (исполнение) ----------
 
 // Исполнить сделку: side 'buy' / 'sell', qty монет по цене price. Возвращает текст или null.
+// extra.maker — исполнение лимитом (комиссия мейкера), иначе — тейкера
 function fill(key, side, qty, price, reason, extra = {}) {
-  const fee = (qty * price * acc.fee) / 100
+  const fee = (qty * price * (extra.maker ? acc.makerFee ?? 0.02 : acc.fee)) / 100
   acc.balance -= fee
   const dir = side === 'buy' ? 'long' : 'short'
   const pos = acc.positions.find((p) => p.key === key)
@@ -111,7 +114,7 @@ function onPrice(key, price, source = 'live') {
     acc.orders = acc.orders.filter((x) => x !== o)
     // лимитный исполняется по своей цене, стоп — по рынку (текущей цене)
     const at = o.type === 'limit' ? o.price : price
-    fill(key, o.side, o.qty, at, 'Ордер', { sl: o.sl, tp: o.tp })
+    fill(key, o.side, o.qty, at, 'Ордер', { sl: o.sl, tp: o.tp, maker: o.type === 'limit' })
     notify(`💼 Исполнен ${o.type === 'limit' ? 'лимитный' : 'стоп'} ордер: ${o.side === 'buy' ? 'покупка' : 'продажа'} ${fmtQty(o.qty)} ${splitKey(key).symbol} по ${fmtPrice(at)}`)
     touched = true
   }
@@ -123,10 +126,12 @@ function onPrice(key, price, source = 'live') {
     const slHit = pos.sl != null && (long ? price <= pos.sl : price >= pos.sl)
     const tpHit = pos.tp != null && (long ? price >= pos.tp : price <= pos.tp)
     if (slHit || tpHit) {
-      const at = slHit ? pos.sl : pos.tp
+      // стоп-лосс — рыночный: закрывается по текущей цене (может быть хуже уровня, проскальзывание), комиссия тейкера;
+      // тейк-профит — лимитный: ровно по своей цене, комиссия мейкера
+      const at = slHit ? price : pos.tp
       const qty = pos.qty
       const pnl = pnlOf(pos, at)
-      fill(key, long ? 'sell' : 'buy', qty, at, slHit ? 'Стоп-лосс' : 'Тейк-профит')
+      fill(key, long ? 'sell' : 'buy', qty, at, slHit ? 'Стоп-лосс (рыночный)' : 'Тейк-профит (лимит)', { maker: !slHit })
       notify(`💼 ${slHit ? 'Стоп-лосс' : 'Тейк-профит'} ${splitKey(key).symbol}: ${pnl >= 0 ? '+' : ''}${fmtUsd(pnl)}`)
       touched = true
     }
@@ -266,8 +271,9 @@ export const paper = {
     changed()
   },
 
-  setSettings({ start, fee, leverage }) {
+  setSettings({ start, fee, makerFee, leverage }) {
     if (fee != null) acc.fee = fee
+    if (makerFee != null) acc.makerFee = makerFee
     if (leverage != null) acc.leverage = leverage
     if (start != null) {
       acc.balance += start - acc.start
@@ -276,7 +282,7 @@ export const paper = {
     changed()
   },
   reset(start = acc.start) {
-    acc = { ...DEFAULT, start, balance: start, fee: acc.fee, leverage: acc.leverage, positions: [], orders: [], history: [] }
+    acc = { ...DEFAULT, start, balance: start, fee: acc.fee, makerFee: acc.makerFee, leverage: acc.leverage, positions: [], orders: [], history: [] }
     changed()
   },
 
@@ -287,8 +293,8 @@ export const paper = {
     if (pos) {
       const pnl = this.pnl(pos)
       out.push({ id: 'entry', price: pos.entry, color: pnl >= 0 ? '#26a69a' : '#ef5350', title: `${pos.side === 'long' ? 'Лонг' : 'Шорт'} ${fmtQty(pos.qty)} · ${pnl >= 0 ? '+' : ''}${fmtUsd(pnl)}` })
-      if (pos.sl != null) out.push({ id: 'sl', price: pos.sl, color: '#ef5350', title: `Стоп ${fmtUsd(pnlOf(pos, pos.sl))}`, drag: (p) => this.setStops(key, { sl: p }) })
-      if (pos.tp != null) out.push({ id: 'tp', price: pos.tp, color: '#26a69a', title: `Тейк +${fmtUsd(pnlOf(pos, pos.tp))}`, drag: (p) => this.setStops(key, { tp: p }) })
+      if (pos.sl != null) out.push({ id: 'sl', price: pos.sl, color: '#ef5350', title: `Стоп (рын.) ${fmtUsd(pnlOf(pos, pos.sl))}`, drag: (p) => this.setStops(key, { sl: p }) })
+      if (pos.tp != null) out.push({ id: 'tp', price: pos.tp, color: '#26a69a', title: `Тейк (лимит) +${fmtUsd(pnlOf(pos, pos.tp))}`, drag: (p) => this.setStops(key, { tp: p }) })
     }
     for (const o of acc.orders) {
       if (o.key !== key) continue

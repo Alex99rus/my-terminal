@@ -32,7 +32,8 @@ export function initPaperUI({ getActive, onOpen, toast }) {
         <button class="pp-set-btn" title="Настройки счёта">⚙</button>
         <div class="pp-set">
           <label>Стартовый баланс, $ <input type="number" data-k="start" min="1"></label>
-          <label>Комиссия, % за сделку <input type="number" data-k="fee" min="0" step="0.01"></label>
+          <label title="Рыночные сделки, стоп-лосс (он рыночный), стоп-ордера">Комиссия тейкера, % <input type="number" data-k="fee" min="0" step="0.001"></label>
+          <label title="Лимитные ордера и тейк-профит (он лимитный)">Комиссия мейкера, % <input type="number" data-k="makerFee" min="0" step="0.001"></label>
           <label>Плечо <input type="number" data-k="leverage" min="1" max="125"></label>
           <button class="pp-reset">Сбросить счёт (закрыть всё и начать заново)</button>
         </div>
@@ -217,7 +218,7 @@ export function initPaperUI({ getActive, onOpen, toast }) {
     let html = ''
     if (ui.tab === 'positions') {
       html = acc.positions.length
-        ? `<table><tr><th>Монета</th><th>Сторона</th><th>Кол-во</th><th>Вход</th><th>Цена</th><th>Прибыль</th><th>%</th><th>Стоп</th><th>Тейк</th><th></th></tr>${acc.positions
+        ? `<table><tr><th>Монета</th><th>Сторона</th><th>Кол-во</th><th>Вход</th><th>Цена</th><th>Прибыль</th><th>%</th><th title="Стоп-лосс рыночный: при касании закрывается по рынку">Стоп (рын.)</th><th title="Тейк-профит лимитный: исполняется ровно по своей цене">Тейк (лимит)</th><th></th></tr>${acc.positions
             .map((p) => {
               const px = paper.price(p.key) ?? p.entry
               const pnl = paper.pnl(p)
