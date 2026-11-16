@@ -335,7 +335,7 @@ export class Pane {
         price: line.price,
         color: line.color,
         lineWidth: line.id === 'entry' ? 2 : 1,
-        lineStyle: line.id === 'entry' ? 0 : 2,
+        lineStyle: line.id === 'entry' ? 0 : line.dotted ? 1 : 2,
         axisLabelVisible: true,
         title: line.title,
       })

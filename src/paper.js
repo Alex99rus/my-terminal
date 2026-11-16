@@ -237,6 +237,13 @@ export const paper = {
     acc.orders = acc.orders.filter((o) => o.id !== id)
     changed()
   },
+  setOrderStops(id, { sl, tp }) {
+    const o = acc.orders.find((x) => x.id === id)
+    if (!o) return
+    if (sl !== undefined) o.sl = sl
+    if (tp !== undefined) o.tp = tp
+    changed()
+  },
   moveOrder(id, price) {
     const o = acc.orders.find((x) => x.id === id)
     if (o) o.price = price
@@ -290,6 +297,10 @@ export const paper = {
         title: `${o.type === 'limit' ? 'Лимит' : 'Стоп'} ${o.side === 'buy' ? 'покупка' : 'продажа'} ${fmtQty(o.qty)}`,
         drag: (p) => this.moveOrder(o.id, p),
       })
+      // стоп и тейк, которые встанут после исполнения ордера (их тоже можно двигать)
+      const pnlAt = (price) => (o.side === 'buy' ? price - o.price : o.price - price) * o.qty
+      if (o.sl != null) out.push({ id: 'osl' + o.id, price: o.sl, color: '#ef5350', dotted: true, title: `Стоп ордера ${fmtUsd(pnlAt(o.sl))}`, drag: (p) => this.setOrderStops(o.id, { sl: p }) })
+      if (o.tp != null) out.push({ id: 'otp' + o.id, price: o.tp, color: '#26a69a', dotted: true, title: `Тейк ордера +${fmtUsd(pnlAt(o.tp))}`, drag: (p) => this.setOrderStops(o.id, { tp: p }) })
     }
     return out
   },
