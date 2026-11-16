@@ -34,7 +34,9 @@ export const DEFAULT_STYLE = {
   crosshairColor: '#9598a1',
   lastPriceLine: true,
   priceLabel: true,
-  countdown: true, // таймер до закрытия свечи под меткой цены
+  countdown: true,
+  paperPosLines: true, // линии демо-позиций на графике: вход, стоп, тейк
+  paperOrderLines: true, // линии ордеров демо-счёта (вход, их стоп и тейк) // таймер до закрытия свечи под меткой цены
   // объём
   volumeOpacity: 50, // %
 }
@@ -96,6 +98,8 @@ const SECTIONS = [
     ['crosshairStyle', 'Перекрестие', 'select', [['dashed', 'пунктир'], ['dotted', 'точки'], ['solid', 'сплошное']]],
     ['crosshairColor', 'Цвет перекрестия', 'color'],
     ['lastPriceLine', 'Линия текущей цены', 'check'],
+    ['paperPosLines', 'Демо-счёт: линии позиций (вход, стоп, тейк)', 'check'],
+    ['paperOrderLines', 'Демо-счёт: линии ордеров', 'check'],
     ['priceLabel', 'Метка цены на шкале', 'check'],
     ['countdown', 'Таймер до закрытия свечи', 'check'],
   ]],

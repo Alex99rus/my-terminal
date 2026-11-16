@@ -331,6 +331,9 @@ export class Pane {
     }
     this.paperLines.clear()
     for (const line of paper.lines(this.key)) {
+      // в настройках можно спрятать линии позиций и/или ордеров
+      const isOrder = line.id.startsWith('o')
+      if (isOrder ? style.paperOrderLines === false : style.paperPosLines === false) continue
       const priceLine = this.candles.createPriceLine({
         price: line.price,
         color: line.color,
@@ -380,6 +383,7 @@ export class Pane {
   // Поменяли настройки графика — применить без перезагрузки данных
   applyStyle() {
     this.chart.applyOptions(this.styleOptions())
+    this.syncPaperLines()
     this.candles.applyOptions({
       ...chartTypeInfo(this.chartType).options(style),
       priceLineVisible: style.lastPriceLine,
