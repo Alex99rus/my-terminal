@@ -532,7 +532,8 @@ export class DrawingsPrimitive {
       if (d.type === 'fib') {
         this.renderFib(ctx, d, g)
       } else if (d.type === 'long' || d.type === 'short') {
-        this.renderPosition(ctx, d, g)
+        // цифры позиции — только у выбранной (и на снимках); иначе — только цветные зоны
+        this.renderPosition(ctx, d, g, selected || !this.showSelection)
       } else if (d.type === 'text') {
         this.renderText(ctx, d, g, selected)
       } else {
@@ -599,7 +600,7 @@ export class DrawingsPrimitive {
   }
 
   // Длинная / короткая позиция: зона прибыли (зелёная), убытка (красная), подписи, ход сделки
-  renderPosition(ctx, d, g) {
+  renderPosition(ctx, d, g, details = true) {
     const a = this.a
     const k = this.k
     const { x1, x2, yE, yS, yT } = g
@@ -617,6 +618,14 @@ export class DrawingsPrimitive {
 
     const st = positionStats(d, a)
     const cx = (x1 + x2) / 2
+    if (details) this.positionLabels(ctx, d, g, st, cx)
+    this.positionOutcome(ctx, d, g, st, details)
+  }
+
+  positionLabels(ctx, d, g, st, cx) {
+    const a = this.a
+    const k = this.k
+    const { yE, yS, yT } = g
     const pct = (p) => (((p - d.entry.price) / d.entry.price) * 100).toFixed(2).replace('.', ',') + '%'
     const up = d.type === 'long'
     const off = 13 * k
@@ -626,7 +635,12 @@ export class DrawingsPrimitive {
     const base = (this.getKey().split(':')[1] || '').replace(/USDT$/, '')
     const qtyText = qty >= 100 ? Math.round(qty).toLocaleString('ru-RU') : qty.toLocaleString('ru-RU', { maximumSignificantDigits: 4 })
     this.label(ctx, `${up ? 'Лонг' : 'Шорт'} · риск ${settings.risk} $ · ${qtyText} ${base} (≈${Math.round(qty * d.entry.price).toLocaleString('ru-RU')} $)`, cx, yE + (up ? off : -off), '#2a2e39', '#d1d4dc')
+  }
 
+  positionOutcome(ctx, d, g, st, details) {
+    const a = this.a
+    const k = this.k
+    const { x1, x2, yE } = g
     // ход сделки: пунктир от входа до текущей цены или до точки закрытия
     if (st.outcome) {
       const o = st.outcome
@@ -646,6 +660,7 @@ export class DrawingsPrimitive {
         ctx.arc(xo, yo, 3.5 * k, 0, Math.PI * 2)
         ctx.fillStyle = color
         ctx.fill()
+        if (!details) return // без выделения — только линия и точка, без подписи
         const r = (o.r >= 0 ? '+' : '') + o.r.toFixed(2).replace('.', ',') + 'R'
         const text = o.closed ? (o.byTarget ? `Цель взята ${r}` : `Стоп ${r}`) : `Сейчас ${r}`
         ctx.font = `${12 * k}px -apple-system, "Segoe UI", Roboto, sans-serif`
