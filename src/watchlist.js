@@ -69,6 +69,7 @@ export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange, onV
     <input class="wl-add" list="wl-suggest" placeholder="+ Добавить монету" autocomplete="off" />
     <datalist id="wl-suggest"></datalist>
     <div class="wl-cols">
+      <span data-sort="mark" title="Отметка: лонг / шорт. Щёлкните, чтобы отсортировать по отметкам">▲▼</span>
       <span data-sort="symbol">Монета</span>
       <span data-sort="last">Цена</span>
       <span data-sort="change">Изм.</span>
@@ -245,6 +246,7 @@ export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange, onV
     if (!s) return items
     const val = (it) => {
       if (s.col === 'symbol') return it.symbol
+      if (s.col === 'mark') return it.mark === 'long' ? 0 : it.mark === 'short' ? 1 : 2
       if (s.col === 'last') return tickers.get(keyOf(it))?.last ?? -Infinity
       return changeOf(keyOf(it)) ?? -Infinity
     }
@@ -269,12 +271,20 @@ export function initWatchlist({ getCurrent, getMarket, onOpen, onListChange, onV
       row.draggable = !state.sort
       row.dataset.key = key
       row.innerHTML = `
+        <button class="wl-mark ${it.mark || ''}" title="Отметка: щелчок — лонг ▲, ещё щелчок — шорт ▼, ещё — убрать">${it.mark === 'long' ? '▲' : it.mark === 'short' ? '▼' : '·'}</button>
         <span class="wl-sym">${it.symbol.replace(/USDT$/, '')}<small>${it.symbol.endsWith('USDT') ? 'USDT' : ''}</small>${mixed ? `<em>${marketShort(it.market)}</em>` : ''}</span>
         <span class="wl-last">—</span>
         <span class="wl-chg"></span>
         <button class="wl-del" title="Убрать из списка">✕</button>`
       row.onclick = (e) => {
         if (e.target.closest('.wl-del')) return remove(key)
+        // отметка лонг / шорт / нет — по кругу
+        if (e.target.closest('.wl-mark')) {
+          it.mark = it.mark === 'long' ? 'short' : it.mark === 'short' ? undefined : 'long'
+          if (!it.mark) delete it.mark
+          save()
+          return renderRows()
+        }
         onOpen(it.symbol, it.market)
       }
       // перетаскивание строк — свой порядок
