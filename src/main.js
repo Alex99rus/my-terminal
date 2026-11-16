@@ -575,6 +575,21 @@ initPaperUI({
 // ---------- Рисование ----------
 initToolbar({ getActiveKey: () => activePane?.key, getPanes: () => panes, onStep: (d) => stepSymbol(d) })
 
+// ---------- Светлое / тёмное оформление панелей ----------
+function isLightColor(c) {
+  const m = /^#?([0-9a-f]{6})/i.exec(c || '')
+  if (!m) return false
+  const n = parseInt(m[1], 16)
+  return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255) > 150
+}
+function applyTheme() {
+  const light = style.theme === 'light' || (style.theme !== 'dark' && isLightColor(style.bg))
+  document.body.classList.toggle('theme-light', light)
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', light ? '#ffffff' : '#131722')
+}
+onStyleChange(applyTheme)
+applyTheme()
+
 // ---------- Верхняя панель: на маленьких экранах — без подписей, компактно, с прокруткой ----------
 const topbar = document.querySelector('.topbar')
 const TB_PARTS = { tbLogo: 'logo', tbChartType: 'charttype', tbSync: 'sync', tbSnap: 'snap', tbPaper: 'paper', tbPhone: 'phone', tbHelp: 'help', tbList: 'list', tbPrice: 'price' }

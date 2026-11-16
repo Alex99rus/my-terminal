@@ -1,3 +1,4 @@
+import { style } from './chartSettings.js'
 // Рисование на графике: линии, лучи, прямоугольники, Фибоначчи.
 //
 // Как устроено:
@@ -548,7 +549,7 @@ export class DrawingsPrimitive {
         for (const p of g.anchors) {
           ctx.beginPath()
           ctx.arc(p.x, p.y, 5, 0, Math.PI * 2)
-          ctx.fillStyle = '#0e1116'
+          ctx.fillStyle = style.bg || '#0e1116' // точки-ручки — цветом фона графика
           ctx.fill()
           ctx.lineWidth = 2
           ctx.strokeStyle = d.color
@@ -661,7 +662,7 @@ export class DrawingsPrimitive {
     ctx.font = `${d.size * k}px -apple-system, "Segoe UI", Roboto, sans-serif`
     ctx.textBaseline = 'top'
     ctx.fillStyle = d.color
-    ctx.shadowColor = '#0e1116'
+    ctx.shadowColor = style.bg || '#0e1116'
     ctx.shadowBlur = 3 * k
     g.textLines.forEach((line, i) => ctx.fillText(line, g.x, g.y + i * d.size * 1.25 * k))
     ctx.shadowBlur = 0

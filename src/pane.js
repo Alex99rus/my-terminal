@@ -702,11 +702,18 @@ export class Pane {
     if (symbol === this.symbol && market === this.market) return
     this.symbol = symbol
     this.market = market
+    this.resetPriceScale()
     this.syncPaperLines()
     this.load()
   }
+  // Новая монета или таймфрейм — шкала цен снова подстраивается сама.
+  // Иначе, если шкалу растягивали руками, у новой монеты бары оказываются за краем экрана.
+  resetPriceScale() {
+    this.chart.priceScale('right').applyOptions({ autoScale: true })
+  }
   setInterval(code) {
     if (code === this.interval) return
+    this.resetPriceScale()
     this.interval = code
     this.intervalSelect.value = code
     for (const t of this.taTables) t.updateVisibility()

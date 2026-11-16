@@ -10,6 +10,18 @@
   --down: #ef5350;
 }
 
+/* Светлое оформление (⚙ → «Оформление панелей», или само — при светлом фоне графика) */
+body.theme-light {
+  --bg: #ffffff;
+  --panel: #f3f4f7;
+  --border: #d9dce3;
+  --text: #131722;
+  --muted: #6a6d78;
+  --accent: #2962ff;
+  --up: #089981;
+  --down: #f23645;
+}
+
 * { box-sizing: border-box; }
 
 html, body {
@@ -1118,3 +1130,16 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
 .wl-mark.short { color: var(--down); font-size: 12px; }
 .wl-row:has(.wl-mark.long) { box-shadow: inset 2px 0 0 var(--up); }
 .wl-row:has(.wl-mark.short) { box-shadow: inset 2px 0 0 var(--down); }
+
+/* светлое оформление: то, что задано не через переменные */
+.theme-light .wl-row:hover, .theme-light .sc-row:hover { background: #0000000a; }
+.theme-light .wl-mark:hover { background: #00000012; }
+.theme-light .wl-mark { color: #b5b8c2; }
+.theme-light .nav-pill { background: rgba(255, 255, 255, .9); box-shadow: 0 4px 16px #0002; }
+.theme-light .to-end-btn { background: rgba(255, 255, 255, .95); box-shadow: 0 3px 10px #0002; }
+.theme-light .lr-table { background: rgba(255, 255, 255, .92); color: #131722; border-color: #ccc; }
+.theme-light .lr-table tr.h td { color: #000; }
+.theme-light .lr-table td { border-color: #ddd; }
+.theme-light .draw-props .color.active { border-color: #131722; }
+.theme-light .modal-overlay { background: rgba(0, 0, 0, .25); }
+.theme-light :is(.menu, .layouts-menu, .snap-menu, .alerts-menu, .wl-menu, .modal, .alert-pop) { box-shadow: 0 8px 24px #0003; }

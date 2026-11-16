@@ -1,3 +1,4 @@
+import { style } from './chartSettings.js'
 // Снимки графиков в высоком разрешении.
 //
 // Как это сделано: обычный снимок графика получается размером с экран. Чтобы картинка
@@ -199,7 +200,7 @@ export async function renderAll(panes, grid, scale) {
   for (const pane of panes) {
     const r = pane.el.getBoundingClientRect()
     const img = await renderPane(pane, scale)
-    ctx.fillStyle = BG
+    ctx.fillStyle = style.bg || BG
     const x = Math.round((r.left - g.left) * scale)
     const y = Math.round((r.top - g.top) * scale)
     const w = Math.round(r.width * scale)
