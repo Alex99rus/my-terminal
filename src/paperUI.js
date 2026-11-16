@@ -25,7 +25,7 @@ export function initPaperUI({ getActive, onOpen, toast }) {
       <span class="pp-sum"></span>
       <div class="pp-tabs">
         <button data-tab="positions">Позиции</button>
-        <button data-tab="orders">Ордера</button>
+        <button data-tab="orders">Открытые ордера</button>
         <button data-tab="history">История</button>
       </div>
       <div class="pp-set-wrap">
@@ -212,7 +212,8 @@ export function initPaperUI({ getActive, onOpen, toast }) {
     const acc = paper.account
     for (const b of panel.querySelectorAll('.pp-tabs button')) {
       b.classList.toggle('active', b.dataset.tab === ui.tab)
-      const n = b.dataset.tab === 'positions' ? acc.positions.length : b.dataset.tab === 'orders' ? acc.orders.length : 0
+      const stops = acc.positions.reduce((n, p) => n + (p.sl != null) + (p.tp != null), 0)
+      const n = b.dataset.tab === 'positions' ? acc.positions.length : b.dataset.tab === 'orders' ? acc.orders.length + stops : 0
       b.dataset.count = n || ''
     }
     let html = ''
@@ -233,16 +234,33 @@ export function initPaperUI({ getActive, onOpen, toast }) {
             .join('')}</table>`
         : '<div class="pp-empty">Открытых позиций нет. Выберите «Купить» или «Продать» слева — или нарисуйте позицию на графике и нажмите «▶ В демо».</div>'
     } else if (ui.tab === 'orders') {
-      html = acc.orders.length
-        ? `<table><tr><th>Монета</th><th>Тип</th><th>Сторона</th><th>Цена</th><th>Кол-во</th><th>Стоп</th><th>Тейк</th><th>Выставлен</th><th></th></tr>${acc.orders
-            .map(
-              (o) => `<tr><td>${sym(o.key)}</td><td>${o.type === 'limit' ? 'Лимит' : 'Стоп'}</td>
-                <td class="${o.side === 'buy' ? 'up' : 'down'}">${o.side === 'buy' ? 'Покупка' : 'Продажа'}</td>
-                <td>${fmtPrice(o.price)}</td><td>${fmtQty(o.qty)}</td><td>${o.sl != null ? fmtPrice(o.sl) : '—'}</td><td>${o.tp != null ? fmtPrice(o.tp) : '—'}</td>
-                <td>${time(o.created)}</td><td class="pp-actions"><button data-cancel="${o.id}">Отменить</button></td></tr>`,
-            )
-            .join('')}</table>`
-        : '<div class="pp-empty">Ордеров нет. Лимитный и стоп-ордер видны на графике синей линией — её можно перетаскивать.</div>'
+      // как «Открытые ордера» на Binance: ордера на вход + стоп-лосс и тейк-профит каждой позиции
+      const rows = []
+      for (const o of acc.orders) {
+        const tpsl = o.tp != null || o.sl != null ? `${o.tp != null ? fmtPrice(o.tp) : '—'} / ${o.sl != null ? fmtPrice(o.sl) : '—'}` : '—'
+        rows.push({ t: o.created, html: `<tr><td>${time(o.created)}</td><td>${sym(o.key)}</td><td>${o.type === 'limit' ? 'Лимит' : 'Стоп-маркет'}</td>
+          <td class="${o.side === 'buy' ? 'up' : 'down'}">${o.side === 'buy' ? 'Покупка' : 'Продажа'}</td>
+          <td>${o.type === 'limit' ? fmtPrice(o.price) : 'Рынок'}</td>
+          <td>${o.type === 'limit' ? '—' : `Цена ${o.side === 'buy' ? '≥' : '≤'} ${fmtPrice(o.price)}`}</td>
+          <td>${fmtQty(o.qty)}</td><td>Нет</td><td>${tpsl}</td>
+          <td class="pp-actions"><button data-cancel="${o.id}">Отменить</button></td></tr>` })
+      }
+      for (const p of acc.positions) {
+        const long = p.side === 'long'
+        const closeSide = `<td class="${long ? 'down' : 'up'}">${long ? 'Продажа' : 'Покупка'}</td>`
+        if (p.sl != null)
+          rows.push({ t: p.opened, html: `<tr><td>${time(p.opened)}</td><td>${sym(p.key)}</td><td>Стоп-маркет <span class="pp-tag sl">SL</span></td>${closeSide}
+            <td>Рынок</td><td>Цена ${long ? '≤' : '≥'} ${fmtPrice(p.sl)}</td><td>Закрыть позицию</td><td>Да</td><td>—</td>
+            <td class="pp-actions"><button class="pp-edit" data-key="${p.key}" data-f="sl">Изменить</button><button data-unstop="${p.key}" data-f="sl">Отменить</button></td></tr>` })
+        if (p.tp != null)
+          rows.push({ t: p.opened, html: `<tr><td>${time(p.opened)}</td><td>${sym(p.key)}</td><td>Тейк-профит лимит <span class="pp-tag tp">TP</span></td>${closeSide}
+            <td>${fmtPrice(p.tp)}</td><td>Цена ${long ? '≥' : '≤'} ${fmtPrice(p.tp)}</td><td>Закрыть позицию</td><td>Да</td><td>—</td>
+            <td class="pp-actions"><button class="pp-edit" data-key="${p.key}" data-f="tp">Изменить</button><button data-unstop="${p.key}" data-f="tp">Отменить</button></td></tr>` })
+      }
+      rows.sort((x, y) => y.t - x.t)
+      html = rows.length
+        ? `<table><tr><th>Время</th><th>Монета</th><th>Тип</th><th>Сторона</th><th>Цена</th><th>Условие</th><th>Кол-во</th><th title="Ордер только уменьшает / закрывает позицию">Уменьш.</th><th>Тейк / Стоп</th><th></th></tr>${rows.map((r) => r.html).join('')}</table>`
+        : '<div class="pp-empty">Открытых ордеров нет. Здесь видны лимитные и стоп-ордера, а также стоп-лосс и тейк-профит каждой позиции.</div>'
     } else {
       const h = acc.history
       const wins = h.filter((t) => t.pnl > 0).length
@@ -280,6 +298,8 @@ export function initPaperUI({ getActive, onOpen, toast }) {
     if (close) return paper.close(close.dataset.close, +close.dataset.part)
     const cancel = t.closest('[data-cancel]')
     if (cancel) return paper.cancelOrder(cancel.dataset.cancel)
+    const unstop = t.closest('[data-unstop]')
+    if (unstop) return paper.setStops(unstop.dataset.unstop, { [unstop.dataset.f]: null })
     const edit = t.closest('.pp-edit')
     if (edit) {
       const field = edit.dataset.f
