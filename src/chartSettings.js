@@ -36,7 +36,8 @@ export const DEFAULT_STYLE = {
   priceLabel: true,
   countdown: true,
   paperPosLines: true, // линии демо-позиций на графике: вход, стоп, тейк
-  paperOrderLines: true, // линии ордеров демо-счёта (вход, их стоп и тейк) // таймер до закрытия свечи под меткой цены
+  paperOrderLines: true,
+  paperArrows: true, // стрелки на барах, где вошли в позицию и вышли из неё // линии ордеров демо-счёта (вход, их стоп и тейк) // таймер до закрытия свечи под меткой цены
   // объём
   volumeOpacity: 50, // %
 }
@@ -100,6 +101,7 @@ const SECTIONS = [
     ['lastPriceLine', 'Линия текущей цены', 'check'],
     ['paperPosLines', 'Демо-счёт: линии позиций (вход, стоп, тейк)', 'check'],
     ['paperOrderLines', 'Демо-счёт: линии ордеров', 'check'],
+    ['paperArrows', 'Демо-счёт: стрелки входа и выхода на барах', 'check'],
     ['priceLabel', 'Метка цены на шкале', 'check'],
     ['countdown', 'Таймер до закрытия свечи', 'check'],
   ]],

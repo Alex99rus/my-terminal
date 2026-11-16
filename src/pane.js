@@ -16,7 +16,8 @@ import { ThinBarSeries, addMainSeries } from './thinBars.js'
 import { PineRun } from './pine.js'
 import { tickMarkFormatter, crosshairTime } from './localTime.js'
 import { style, withAlpha, LINE_STYLE } from './chartSettings.js'
-import { paper } from './paper.js'
+import { paper, fmtUsd } from './paper.js'
+import { PaperArrowsPrimitive } from './paperArrows.js'
 
 // Интервалы: подпись → код у Binance → длина в секундах
 export const INTERVALS = [
@@ -313,6 +314,10 @@ export class Pane {
     this.countdown?.stop()
     this.countdown = new CountdownPrimitive(() => this.bars, () => this.intervalSec, () => this.candles, () => !['candles', 'bars', 'hollow', 'heikin'].includes(this.chartType))
     this.candles.attachPrimitive(this.countdown)
+    // стрелки демо-сделок на барах
+    this.paperArrows = new PaperArrowsPrimitive(this)
+    this.candles.attachPrimitive(this.paperArrows)
+    this.syncPaperArrows()
     if (this.bars.length) this.candles.setData(this.bars.map(this.toPoint))
     this.updateLabelColor()
     this.paperLines?.clear() // старые линии были на старой серии
@@ -322,7 +327,31 @@ export class Pane {
   // ---------- Демо-счёт на графике ----------
 
   // Линии позиции (вход, стоп, тейк) и ордеров этой монеты — создать заново
+  // Стрелки входа / выхода демо-сделок этой монеты
+  syncPaperArrows() {
+    if (!this.paperArrows) return
+    const acc = paper.account
+    const items = []
+    const seen = new Set()
+    const entry = (t, long) => {
+      const k = `${t}:${long}`
+      if (seen.has(k)) return
+      seen.add(k)
+      items.push({ time: t / 1000, long, exit: false, color: long ? '#26a69a' : '#ef5350', text: '' })
+    }
+    for (const h of acc.history) {
+      if (h.key !== this.key) continue
+      const long = h.side === 'long'
+      entry(h.opened, long)
+      items.push({ time: h.closed / 1000, long, exit: true, color: h.pnl >= 0 ? '#26a69a' : '#ef5350', text: `${h.pnl >= 0 ? '+' : ''}${fmtUsd(h.pnl)}` })
+    }
+    for (const pos of acc.positions) if (pos.key === this.key) entry(pos.opened, pos.side === 'long')
+    items.sort((a, b) => a.time - b.time)
+    this.paperArrows.setItems(items)
+  }
+
   syncPaperLines() {
+    this.syncPaperArrows()
     if (!this.candles || !this.paperLines) return
     for (const { priceLine } of this.paperLines.values()) {
       try {
