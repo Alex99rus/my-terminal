@@ -34,7 +34,7 @@ function drawingAlerts() {
   for (const key of draw.keys()) for (const d of draw.list(key)) if (d.alert) out.push({ key, d })
   return out
 }
-const TF_NAMES = { '15m': '15м', '1h': '1ч', '4h': '4ч', '1d': '1Д' }
+const TF_NAMES = { '5m': '5м', '15m': '15м', '1h': '1ч', '4h': '4ч', '1d': '1Д' }
 
 /**
  * getPanes() — окна графиков; getActivePane() — активное окно
@@ -223,7 +223,7 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
     }
     for (const { key, d } of drawingAlerts()) {
       const { symbol, market } = splitKey(key)
-      const how = d.alert.mode === 'close' ? `закрытие ${TF_NAMES[d.alert.tf] || d.alert.tf}` : 'пересечение'
+      const how = d.alert.mode === 'close' ? `закрытие ${TF_NAMES[d.alert.tf] || d.alert.tf}${d.alert.dir === 'above' ? ' выше' : d.alert.dir === 'below' ? ' ниже' : ''}` : 'пересечение'
       rows.push({
         active: d.alert.active, at: d.alert.triggeredAt || d.alert.created,
         html: `<div class="al-row ${d.alert.active ? '' : 'done'}" data-kind="drawing" data-key="${key}" data-id="${d.id}">

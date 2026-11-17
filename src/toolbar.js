@@ -112,11 +112,19 @@ export function initToolbar({ getActiveKey, getPanes, onStep }) {
       <div class="bell-menu">
         <div class="bm-title">Оповещение, когда цена…</div>
         <button data-mode="cross">пересечёт линию (сразу)</button>
-        <div class="bm-title">…или свеча закроется по другую сторону линии</div>
-        <button data-mode="close" data-tf="15m">закрытие 15м</button>
-        <button data-mode="close" data-tf="1h">закрытие 1ч</button>
-        <button data-mode="close" data-tf="4h">закрытие 4ч</button>
-        <button data-mode="close" data-tf="1d">закрытие 1Д</button>
+        <div class="bm-title">…или свеча закроется</div>
+        <div class="bm-dirs">
+          <button data-dir="above" title="Сигнал, когда свеча закроется выше линии">▲ выше</button>
+          <button data-dir="below" title="Сигнал, когда свеча закроется ниже линии">▼ ниже</button>
+          <button data-dir="any" title="Сигнал при закрытии по любую сторону линии">⇅ любая</button>
+        </div>
+        <div class="bm-tfs">
+          <button data-mode="close" data-tf="5m">5м</button>
+          <button data-mode="close" data-tf="15m">15м</button>
+          <button data-mode="close" data-tf="1h">1ч</button>
+          <button data-mode="close" data-tf="4h">4ч</button>
+          <button data-mode="close" data-tf="1d">1Д</button>
+        </div>
         <button data-mode="off" class="bm-off">выключить оповещение</button>
       </div>
     </span>
@@ -147,15 +155,37 @@ export function initToolbar({ getActiveKey, getPanes, onStep }) {
   // 🔔 оповещение на линии: при пересечении или на закрытии свечи
   const bellMenu = props.querySelector('.bell-menu')
   props.querySelector('.bell').onclick = () => bellMenu.classList.toggle('open')
-  for (const b of bellMenu.querySelectorAll('button')) {
+  // направление «свеча закроется выше / ниже / по любую сторону» — выбирается до таймфрейма
+  let closeDir = 'any'
+  const DIR_TEXT = { above: 'выше линии', below: 'ниже линии', any: 'по другую сторону линии' }
+  const showDir = () => {
+    for (const b of bellMenu.querySelectorAll('[data-dir]')) b.classList.toggle('current', b.dataset.dir === closeDir)
+  }
+  for (const b of bellMenu.querySelectorAll('[data-dir]')) {
+    b.onclick = (e) => {
+      e.stopPropagation()
+      closeDir = b.dataset.dir
+      showDir()
+      // если у линии уже стоит оповещение по закрытию — сразу меняем направление
+      const sel = draw.selected
+      const d = draw.selectedDrawing?.()
+      if (sel && d?.alert?.mode === 'close') {
+        draw.update(sel.key, sel.id, { alert: { ...d.alert, dir: closeDir, active: true, created: Date.now() } })
+        hint(`🔔 Оповещение: свеча ${TF_LABEL[d.alert.tf] || d.alert.tf} закроется ${DIR_TEXT[closeDir]}`)
+      }
+    }
+  }
+  const TF_LABEL = { '5m': '5м', '15m': '15м', '1h': '1ч', '4h': '4ч', '1d': '1Д' }
+  for (const b of bellMenu.querySelectorAll('[data-mode]')) {
     b.onclick = () => {
       const sel = draw.selected
       if (!sel) return
       bellMenu.classList.remove('open')
       if (b.dataset.mode === 'off') return draw.update(sel.key, sel.id, { alert: null })
       if (window.Notification?.permission === 'default') Notification.requestPermission()
-      draw.update(sel.key, sel.id, { alert: { active: true, mode: b.dataset.mode, tf: b.dataset.tf || null, created: Date.now() } })
-      hint(b.dataset.mode === 'cross' ? '🔔 Оповещение: когда цена пересечёт линию' : `🔔 Оповещение: когда свеча ${b.textContent.replace('закрытие ', '')} закроется по другую сторону линии`)
+      const close = b.dataset.mode === 'close'
+      draw.update(sel.key, sel.id, { alert: { active: true, mode: b.dataset.mode, tf: b.dataset.tf || null, dir: close ? closeDir : undefined, created: Date.now() } })
+      hint(close ? `🔔 Оповещение: когда свеча ${TF_LABEL[b.dataset.tf]} закроется ${DIR_TEXT[closeDir]}` : '🔔 Оповещение: когда цена пересечёт линию')
     }
   }
 
@@ -218,10 +248,12 @@ export function initToolbar({ getActiveKey, getPanes, onStep }) {
       props.dataset.alertable = ALERTABLE.includes(d.type) ? '1' : ''
       const bell = props.querySelector('.bell')
       bell.classList.toggle('active', !!d.alert?.active)
-      for (const b of bellMenu.querySelectorAll('button')) {
+      for (const b of bellMenu.querySelectorAll('[data-mode]')) {
         const on = d.alert && b.dataset.mode === d.alert.mode && (b.dataset.tf || null) === (d.alert.tf || null)
         b.classList.toggle('current', !!on)
       }
+      if (d.alert?.mode === 'close') closeDir = d.alert.dir || 'any'
+      showDir()
       for (const b of props.querySelectorAll('.size')) b.classList.toggle('active', +b.dataset.size === d.size)
       if (document.activeElement !== riskInput) riskInput.value = draw.settings.risk
       for (const b of props.querySelectorAll('.color')) b.classList.toggle('active', b.dataset.color === d.color)

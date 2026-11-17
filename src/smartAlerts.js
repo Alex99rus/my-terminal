@@ -340,7 +340,9 @@ function checkDrawingClose(key, d, bars, tf) {
     if (levelsPrev[n] == null) continue
     const wasAbove = prev.close > levelsPrev[n]
     const isAbove = cur.close > levelsNow[n]
-    if (wasAbove !== isAbove) {
+    // направление: только закрытие выше линии, только ниже — или любое пересечение
+    const dir = d.alert.dir || 'any'
+    if (wasAbove !== isAbove && (dir === 'any' || (dir === 'above') === isAbove)) {
       const [market, symbol] = key.split(':')
       draw.update(key, d.id, { alert: { ...d.alert, active: false, triggeredAt: Date.now() } })
       notify(

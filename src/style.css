@@ -1147,3 +1147,10 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
 .pp-table .pp-tag { font-style: normal; font-weight: 600; font-size: 10px; padding: 0 4px; border-radius: 3px; margin-left: 4px; color: #fff; }
 .pp-tag.sl { background: var(--down); }
 .pp-tag.tp { background: var(--up); }
+
+/* оповещение по закрытию: направление и таймфрейм */
+.bell-menu .bm-dirs, .bell-menu .bm-tfs { display: flex; gap: 4px; padding: 2px 4px 4px; }
+.bell-menu .bm-dirs button, .bell-menu .bm-tfs button { width: auto; flex: 1; text-align: center; padding: 6px 4px; border: 1px solid var(--border); white-space: nowrap; }
+.bell-menu .bm-dirs button[data-dir="above"].current { background: #26a69a26; color: var(--up); border-color: var(--up); }
+.bell-menu .bm-dirs button[data-dir="below"].current { background: #ef535026; color: var(--down); border-color: var(--down); }
+.bell-menu .bm-dirs button[data-dir="any"].current { background: #2962ff26; color: var(--accent); border-color: var(--accent); }
