@@ -236,18 +236,47 @@ export function initToolbar({ getActiveKey, getPanes, onStep }) {
     }
     draw.update(sel.key, sel.id, patch)
   }
+  // Шаг цены на одну клетку (как на шкале графика этой монеты); с Shift — на десять клеток
+  function stepPrice(input, dir, big) {
+    const sel = draw.selected
+    const d = draw.selectedDrawing()
+    if (!d) return
+    const f = input.dataset.field
+    const pane = [...getPanes()].find((p) => p.key === sel.key)
+    const dec = pane?.decimals ?? 2
+    const tick = 10 ** -dec
+    const typed = parseFloat(input.value.replace(/\s/g, '').replace(',', '.'))
+    const base = isFinite(typed) && typed > 0 ? typed : getPrice(d, f)
+    // считаем в клетках: цена между клетками (288.0657) сначала встаёт на ближайшую клетку в нужную сторону
+    const q = base / tick
+    const onGrid = Math.abs(q - Math.round(q)) < 1e-6
+    const n = (onGrid ? Math.round(q) + dir : dir > 0 ? Math.ceil(q) : Math.floor(q)) + dir * ((big ? 10 : 1) - 1)
+    const next = +(n * tick).toFixed(dec)
+    input.value = plain(next)
+    commitPrice(input)
+    const cur = draw.selectedDrawing()
+    if (cur) input.value = plain(getPrice(cur, f)) // что реально применилось (или прежнее, если сторона неверная)
+  }
   function renderPrices(d) {
     const fields = d ? priceFields(d) : []
     const key = d ? d.id + ':' + fields.map((x) => x[1]).join() : ''
     if (key !== pricesKey) {
       pricesKey = key
-      pricesBox.innerHTML = fields.map(([label, f]) => `<label title="Введите цену и нажмите Enter">${label} <input type="text" inputmode="decimal" data-field="${f}"></label>`).join('')
+      pricesBox.innerHTML = fields.map(([label, f]) => `<label title="Введите цену и нажмите Enter. Стрелки ↑↓ или колёсико — на один шаг цены, с Shift — на десять шагов">${label} <input type="text" inputmode="decimal" data-field="${f}"></label>`).join('')
       for (const input of pricesBox.querySelectorAll('input')) {
         input.addEventListener('change', () => commitPrice(input))
         input.addEventListener('focus', () => input.select())
+        input.addEventListener('wheel', (e) => {
+          e.preventDefault() // колёсико над полем меняет цену, а не прокручивает страницу
+          e.stopPropagation()
+          stepPrice(input, e.deltaY < 0 ? 1 : -1, e.shiftKey)
+        }, { passive: false })
         input.addEventListener('keydown', (e) => {
           e.stopPropagation() // Delete, стрелки и Esc — полю, а не графику
-          if (e.key === 'Enter') input.blur()
+          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault()
+            stepPrice(input, e.key === 'ArrowUp' ? 1 : -1, e.shiftKey)
+          } else if (e.key === 'Enter') input.blur()
           else if (e.key === 'Escape') {
             const cur = draw.selectedDrawing()
             if (cur) input.value = plain(getPrice(cur, input.dataset.field))
