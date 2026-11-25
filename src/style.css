@@ -213,11 +213,11 @@ body { display: flex; flex-direction: column; }
 .draw-props .dash i { display: block; width: 18px; border-top: 2px dashed currentColor; }
 .draw-props .delete:hover { color: var(--down); }
 .dp-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
-.draw-props .sizes, .draw-props .risk, .draw-props .flip { display: none; }
+.draw-props .sizes, .draw-props .risk, .draw-props .flip, .draw-props .rr { display: none; }
 .draw-props[data-kind="text"] .sizes { display: flex; gap: 2px; }
 .draw-props[data-kind="text"] .width, .draw-props[data-kind="text"] .dash { display: none; }
 .draw-props[data-kind="position"] .colors, .draw-props[data-kind="position"] .width, .draw-props[data-kind="position"] .dash { display: none; }
-.draw-props[data-kind="position"] .risk { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
+.draw-props[data-kind="position"] .risk, .draw-props[data-kind="position"] .rr { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
 .draw-props[data-kind="position"] .flip { display: grid; font-size: 15px; }
 .draw-props .to-paper { display: none; }
 .draw-props[data-kind="position"] .to-paper { display: grid; color: #fff; background: var(--accent); padding: 0 10px; font-weight: 600; }
@@ -232,6 +232,7 @@ body { display: flex; flex-direction: column; }
 .draw-props .prices label { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
 .draw-props .prices input { width: 100px; }
 .draw-props .risk input,
+.draw-props .rr input,
 .draw-props .prices input {
   width: 64px;
   background: var(--bg);
@@ -1161,3 +1162,4 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
 .bell-menu .bm-dirs button[data-dir="any"].current { background: #2962ff26; color: var(--accent); border-color: var(--accent); }
 
 .pp-after { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.draw-props .rr input { width: 56px; }

@@ -104,6 +104,7 @@ export function initToolbar({ getActiveKey, getPanes, onStep }) {
     <span class="dp-sep s3"></span>
     <span class="sizes">${TEXT_SIZES.map((sz) => `<button class="size" data-size="${sz}" title="Размер ${sz}" style="font-size:${Math.min(sz, 18)}px">A</button>`).join('')}</span>
     <span class="prices"></span>
+    <label class="rr" title="Риск/прибыль: во сколько раз цель дальше от входа, чем стоп. Введите число (например 3) — цель встанет на 3R. Стрелки ↑↓ или колёсико — на 0,1, с Shift — на 1">R:R <input type="text" inputmode="decimal"></label>
     <label class="risk" title="Сколько долларов вы готовы потерять, если сработает стоп">Риск $ <input type="number" min="1" step="1"></label>
     <button class="flip" title="Перевернуть: лонг ⇄ шорт">⇅</button>
     <button class="to-paper" title="Выставить эту позицию на демо-счёт: ордер на вход, стоп и тейк">▶ В демо</button>
@@ -257,6 +258,57 @@ export function initToolbar({ getActiveKey, getPanes, onStep }) {
     const cur = draw.selectedDrawing()
     if (cur) input.value = plain(getPrice(cur, f)) // что реально применилось (или прежнее, если сторона неверная)
   }
+  // ---------- Риск/прибыль (R:R) ----------
+  // Показывает, во сколько раз цель дальше от входа, чем стоп. Ввели число — цель переставляется на это расстояние.
+  const rrInput = props.querySelector('.rr input')
+  const rrOf = (d) => Math.abs(d.target - d.entry.price) / (Math.abs(d.entry.price - d.stop) || 1e-12)
+  const fmtRR = (v) => v.toFixed(2).replace('.', ',')
+  function commitRR(v) {
+    const sel = draw.selected
+    const d = draw.selectedDrawing()
+    if (!d?.entry) return
+    if (!(v > 0) || v > 1000 || !isFinite(v)) return
+    const pane = [...getPanes()].find((p) => p.key === sel.key)
+    const dec = pane?.decimals ?? 2
+    const risk = Math.abs(d.entry.price - d.stop)
+    const target = +(d.entry.price + (d.type === 'long' ? 1 : -1) * risk * v).toFixed(dec)
+    if (target > 0 && target !== d.target) draw.update(sel.key, sel.id, { target })
+  }
+  const readRR = () => parseFloat(rrInput.value.replace(/\s/g, '').replace(',', '.'))
+  const resetRR = () => {
+    const d = draw.selectedDrawing()
+    if (d?.entry) rrInput.value = fmtRR(rrOf(d))
+  }
+  const stepRR = (dir, big) => {
+    const d = draw.selectedDrawing()
+    if (!d?.entry) return
+    const base = readRR() > 0 ? readRR() : rrOf(d)
+    const next = Math.round((base + dir * (big ? 1 : 0.1)) * 100) / 100
+    if (next > 0) commitRR(next)
+    resetRR()
+  }
+  rrInput.addEventListener('change', () => {
+    commitRR(readRR())
+    resetRR()
+  })
+  rrInput.addEventListener('focus', () => rrInput.select())
+  rrInput.addEventListener('wheel', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    stepRR(e.deltaY < 0 ? 1 : -1, e.shiftKey)
+  }, { passive: false })
+  rrInput.addEventListener('keydown', (e) => {
+    e.stopPropagation()
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      stepRR(e.key === 'ArrowUp' ? 1 : -1, e.shiftKey)
+    } else if (e.key === 'Enter') rrInput.blur()
+    else if (e.key === 'Escape') {
+      resetRR()
+      rrInput.blur()
+    }
+  })
+
   function renderPrices(d) {
     const fields = d ? priceFields(d) : []
     const key = d ? d.id + ':' + fields.map((x) => x[1]).join() : ''
@@ -362,6 +414,7 @@ export function initToolbar({ getActiveKey, getPanes, onStep }) {
       props.querySelector('.dash').classList.toggle('active', !!d.dash)
     }
     renderPrices(d)
+    if (d?.entry && document.activeElement !== rrInput) rrInput.value = fmtRR(rrOf(d))
     document.body.classList.toggle('drawing', draw.tool !== 'cursor')
   }
   draw.subscribe(render)
