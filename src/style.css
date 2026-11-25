@@ -784,9 +784,7 @@ body.resizing-h, body.resizing-h * { cursor: row-resize !important; user-select:
   position: absolute;
   left: 0;
   z-index: 3;
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
+  pointer-events: none;
   background: rgba(22, 26, 34, 0.88);
   border: 1px solid var(--border);
   border-left: none;
@@ -794,8 +792,6 @@ body.resizing-h, body.resizing-h * { cursor: row-resize !important; user-select:
   padding: 3px 4px;
   font-variant-numeric: tabular-nums;
 }
-.ta-table.moved { border-left: 1px solid var(--border); border-radius: 6px; }
-.ta-table.dragging { cursor: grabbing; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); }
 .ta-table table { border-collapse: collapse; }
 .ta-table td { padding: 1px 6px; text-align: right; white-space: nowrap; }
 .ta-table tr.head td { font-size: 0.9em; }

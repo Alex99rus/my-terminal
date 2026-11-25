@@ -8,7 +8,6 @@ import { style } from './chartSettings.js'
 import { addMainSeries } from './thinBars.js'
 import { createChart, HistogramSeries } from 'lightweight-charts'
 import { fmt } from './pane.js'
-import { taOffset } from './traderAssistant.js'
 import { makeAdapter, DrawingsPrimitive } from './drawings.js'
 import { marketLabel } from './markets.js'
 import { DayLinesPrimitive } from './dayLines.js'
@@ -166,10 +165,8 @@ function drawTATable(canvas, pane, scale, copy) {
   const w = widths.reduce((a, b) => a + b, 0) + pad * 6
   const h = rows.length * rowH + pad
   const mainH = copy.panes()[0].getHeight() * dpr
-  const off = taOffset() // куда сдвинули таблицу мышью (в обычных пикселях)
-  const baseTop = Math.max(0, copy.panes()[0].getHeight() - h / dpr - 8 * scale)
-  const x0 = Math.max(0, off.dx) * scale * dpr
-  const y0 = Math.min(Math.max(0, baseTop + off.dy * scale) * dpr, mainH - h)
+  const x0 = 0
+  const y0 = mainH - h - 8 * scale
   ctx.fillStyle = 'rgba(22, 26, 34, 0.88)'
   ctx.fillRect(x0, y0, w, h)
   ctx.strokeStyle = '#262b36'
