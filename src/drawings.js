@@ -843,6 +843,18 @@ export class DrawingController {
     if (!on) this.setSnap(null)
   }
 
+  // Пока тянем рисунок, график не получает движений мыши (иначе он бы прокручивался) и сам перекрестие не двигает.
+  // Ставим его сами: в точку под мышью, а с магнитом — туда, где точка действительно окажется (на цене свечи).
+  showCross(x, y, e) {
+    const chart = this.pane.chart
+    if (!this.inside(x, y)) return chart.clearCrosshairPosition()
+    const bar = this.a.barAtX(x)
+    const p = this.magnetActive ? this.point(x, y, e) : null
+    const price = p ? p.price : this.a.yToPrice(y)
+    if (!bar || price == null) return chart.clearCrosshairPosition()
+    chart.setCrosshairPosition(price, bar.time, this.pane.candles)
+  }
+
   setSnap(p) {
     if (!p && !this.snap) return
     this.snap = p
@@ -1005,6 +1017,7 @@ export class DrawingController {
     }
     if (this.mode === 'drag') {
       this.applyDrag(x, y, e)
+      this.showCross(x, y, e)
       return
     }
     if (this.mode === 'paper') {
@@ -1045,6 +1058,8 @@ export class DrawingController {
       const { x, y } = this.local(e)
       if (Math.hypot(x - this.placeStart.x, y - this.placeStart.y) > 6) this.finishPlace(x, y, e)
     } else if (this.mode === 'drag') {
+      const { x, y } = this.local(e)
+      if (!this.inside(x, y)) this.pane.chart.clearCrosshairPosition() // отпустили за пределами графика — убираем «застывшее» перекрестие
       const d = draw.find(this.key, this.dragInfo.id)
       // оповещение передвинули — оно снова ждёт; направление — от текущей цены
       if (d?.type === 'alert') {
