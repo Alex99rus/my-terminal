@@ -212,7 +212,7 @@ export function initPaperUI({ getActive, onOpen, toast }) {
     const acc = paper.account
     for (const b of panel.querySelectorAll('.pp-tabs button')) {
       b.classList.toggle('active', b.dataset.tab === ui.tab)
-      const stops = acc.positions.reduce((n, p) => n + (p.sl != null) + (p.tp != null), 0)
+      const stops = [...acc.positions, ...acc.orders].reduce((n, p) => n + (p.sl != null) + (p.tp != null), 0)
       const n = b.dataset.tab === 'positions' ? acc.positions.length : b.dataset.tab === 'orders' ? acc.orders.length + stops : 0
       b.dataset.count = n || ''
     }
@@ -244,6 +244,16 @@ export function initPaperUI({ getActive, onOpen, toast }) {
           <td>${o.type === 'limit' ? '—' : `Цена ${o.side === 'buy' ? '≥' : '≤'} ${fmtPrice(o.price)}`}</td>
           <td>${fmtQty(o.qty)}</td><td>Нет</td><td>${tpsl}</td>
           <td class="pp-actions"><button data-cancel="${o.id}">Отменить</button></td></tr>` })
+        // стоп и тейк ордера видны сразу, а не после исполнения входа; сработают, когда ордер на вход исполнится
+        const oLong = o.side === 'buy'
+        const oClose = `<td class="${oLong ? 'down' : 'up'}">${oLong ? 'Продажа' : 'Покупка'}</td>`
+        const oBtns = (f) => `<td class="pp-actions"><button class="pp-edit" data-oid="${o.id}" data-f="${f}">Изменить</button><button data-ounstop="${o.id}" data-f="${f}">Отменить</button></td></tr>`
+        if (o.sl != null)
+          rows.push({ t: o.created, html: `<tr><td>${time(o.created)}</td><td>${sym(o.key)}</td><td>Стоп-маркет <span class="pp-tag sl">SL</span> <span class="pp-after">после входа</span></td>${oClose}
+            <td>Рынок</td><td>Цена ${oLong ? '≤' : '≥'} ${fmtPrice(o.sl)}</td><td>Закрыть позицию</td><td>Да</td><td>—</td>${oBtns('sl')}` })
+        if (o.tp != null)
+          rows.push({ t: o.created, html: `<tr><td>${time(o.created)}</td><td>${sym(o.key)}</td><td>Тейк-профит лимит <span class="pp-tag tp">TP</span> <span class="pp-after">после входа</span></td>${oClose}
+            <td>${fmtPrice(o.tp)}</td><td>Цена ${oLong ? '≥' : '≤'} ${fmtPrice(o.tp)}</td><td>Закрыть позицию</td><td>Да</td><td>—</td>${oBtns('tp')}` })
       }
       for (const p of acc.positions) {
         const long = p.side === 'long'
@@ -298,9 +308,25 @@ export function initPaperUI({ getActive, onOpen, toast }) {
     if (close) return paper.close(close.dataset.close, +close.dataset.part)
     const cancel = t.closest('[data-cancel]')
     if (cancel) return paper.cancelOrder(cancel.dataset.cancel)
+    const ounstop = t.closest('[data-ounstop]')
+    if (ounstop) return paper.setOrderStops(ounstop.dataset.ounstop, { [ounstop.dataset.f]: null })
     const unstop = t.closest('[data-unstop]')
     if (unstop) return paper.setStops(unstop.dataset.unstop, { [unstop.dataset.f]: null })
     const edit = t.closest('.pp-edit')
+    if (edit && edit.dataset.oid) {
+      const o = paper.account.orders.find((x) => x.id === edit.dataset.oid)
+      if (!o) return
+      const field = edit.dataset.f
+      const v = prompt(`${field === 'sl' ? 'Стоп-лосс' : 'Тейк-профит'} ордера (пусто — убрать):`, o[field] ?? '')
+      if (v === null) return
+      const n = parseFloat(v.replace(',', '.').replace(/\s/g, ''))
+      if (n > 0) {
+        const long = o.side === 'buy'
+        const below = field === 'sl' ? long : !long // стоп лонга и тейк шорта — ниже входа
+        if (below ? n >= o.price : n <= o.price) return toast(`${field === 'sl' ? 'Стоп-лосс' : 'Тейк-профит'} должен быть ${below ? 'ниже' : 'выше'} цены входа ${fmtPrice(o.price)}`)
+      }
+      return paper.setOrderStops(o.id, { [field]: n > 0 ? n : null })
+    }
     if (edit) {
       const field = edit.dataset.f
       const pos = paper.account.positions.find((p) => p.key === edit.dataset.key)

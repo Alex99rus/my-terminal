@@ -1159,3 +1159,5 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
 .bell-menu .bm-dirs button[data-dir="above"].current { background: #26a69a26; color: var(--up); border-color: var(--up); }
 .bell-menu .bm-dirs button[data-dir="below"].current { background: #ef535026; color: var(--down); border-color: var(--down); }
 .bell-menu .bm-dirs button[data-dir="any"].current { background: #2962ff26; color: var(--accent); border-color: var(--accent); }
+
+.pp-after { color: var(--muted); font-size: 11px; white-space: nowrap; }
