@@ -1,5 +1,5 @@
 // Панель инструментов рисования (слева) и панель настроек выделенного рисунка (сверху).
-import { draw, TOOLS, COLORS, TEXT_SIZES, ALERTABLE } from './drawings.js'
+import { draw, TOOLS, COLORS, TEXT_SIZES, ALERTABLE, ALERT_COLOR } from './drawings.js'
 import { paper, fmtQty, fmtPrice } from './paper.js'
 
 // Значки — маленькие картинки SVG, нарисованные линиями
@@ -103,6 +103,7 @@ export function initToolbar({ getActiveKey, getPanes, onStep }) {
     <button class="dash" title="Пунктир"><i></i></button>
     <span class="dp-sep s3"></span>
     <span class="sizes">${TEXT_SIZES.map((sz) => `<button class="size" data-size="${sz}" title="Размер ${sz}" style="font-size:${Math.min(sz, 18)}px">A</button>`).join('')}</span>
+    <span class="prices"></span>
     <label class="risk" title="Сколько долларов вы готовы потерять, если сработает стоп">Риск $ <input type="number" min="1" step="1"></label>
     <button class="flip" title="Перевернуть: лонг ⇄ шорт">⇅</button>
     <button class="to-paper" title="Выставить эту позицию на демо-счёт: ордер на вход, стоп и тейк">▶ В демо</button>
@@ -189,6 +190,77 @@ export function initToolbar({ getActiveKey, getPanes, onStep }) {
     }
   }
 
+
+  // ---------- Цена цифрами ----------
+  // Поля цены выделенного рисунка: ввели число и нажали Enter — линия встала на точную цену.
+  const pricesBox = props.querySelector('.prices')
+  let pricesKey = ''
+  const priceFields = (d) => {
+    if (d.entry) return [['Вход', 'entry'], ['Стоп', 'stop'], ['Цель', 'target']]
+    if (d.p1 && d.p2) return [['Цена 1', 'p1'], ['Цена 2', 'p2']]
+    if (d.type !== 'text' && d.price != null) return [['Цена', 'price']]
+    return []
+  }
+  const getPrice = (d, f) => (f === 'entry' ? d.entry.price : f === 'p1' || f === 'p2' ? d[f].price : d[f])
+  // число без пробелов и лишних хвостов, чтобы его можно было править руками
+  const plain = (p) => String(+p.toFixed(p >= 1000 ? 2 : p >= 1 ? 4 : p >= 0.01 ? 6 : 8))
+  function commitPrice(input) {
+    const sel = draw.selected
+    const d = draw.selectedDrawing()
+    if (!d) return
+    const f = input.dataset.field
+    const v = parseFloat(input.value.replace(/\s/g, '').replace(',', '.'))
+    const revert = () => (input.value = plain(getPrice(d, f)))
+    if (!(v > 0) || !isFinite(v)) return revert()
+    if (v === getPrice(d, f)) return revert()
+    // у позиции стоп и цель должны стоять с нужных сторон от входа
+    if (d.entry) {
+      const long = d.type === 'long'
+      const entry = f === 'entry' ? v : d.entry.price
+      const stop = f === 'stop' ? v : d.stop
+      const target = f === 'target' ? v : d.target
+      const ok = long ? stop < entry && entry < target : target < entry && entry < stop
+      if (!ok) {
+        hint(long ? '⚠️ У лонга стоп должен быть ниже входа, а цель выше' : '⚠️ У шорта стоп должен быть выше входа, а цель ниже')
+        return revert()
+      }
+    }
+    let patch
+    if (f === 'entry') patch = { entry: { ...d.entry, price: v } }
+    else if (f === 'p1' || f === 'p2') patch = { [f]: { ...d[f], price: v } }
+    else patch = { [f]: v }
+    // оповещение передвинули — оно снова ждёт; направление считаем от текущей цены (как при перетаскивании)
+    if (d.type === 'alert') {
+      const last = paper.price(sel.key)
+      Object.assign(patch, { active: true, color: ALERT_COLOR, dir: last != null && v < last ? 'down' : 'up' })
+    }
+    draw.update(sel.key, sel.id, patch)
+  }
+  function renderPrices(d) {
+    const fields = d ? priceFields(d) : []
+    const key = d ? d.id + ':' + fields.map((x) => x[1]).join() : ''
+    if (key !== pricesKey) {
+      pricesKey = key
+      pricesBox.innerHTML = fields.map(([label, f]) => `<label title="Введите цену и нажмите Enter">${label} <input type="text" inputmode="decimal" data-field="${f}"></label>`).join('')
+      for (const input of pricesBox.querySelectorAll('input')) {
+        input.addEventListener('change', () => commitPrice(input))
+        input.addEventListener('focus', () => input.select())
+        input.addEventListener('keydown', (e) => {
+          e.stopPropagation() // Delete, стрелки и Esc — полю, а не графику
+          if (e.key === 'Enter') input.blur()
+          else if (e.key === 'Escape') {
+            const cur = draw.selectedDrawing()
+            if (cur) input.value = plain(getPrice(cur, input.dataset.field))
+            input.blur()
+          }
+        })
+      }
+    }
+    for (const input of pricesBox.querySelectorAll('input')) {
+      if (d && document.activeElement !== input) input.value = plain(getPrice(d, input.dataset.field))
+    }
+  }
+
   // ▶ В демо: позиция с графика → ордер на демо-счёте (вход, стоп, тейк, объём по риску)
   props.querySelector('.to-paper').onclick = () => {
     const sel = draw.selected
@@ -260,6 +332,7 @@ export function initToolbar({ getActiveKey, getPanes, onStep }) {
       for (const b of props.querySelectorAll('.width')) b.classList.toggle('active', +b.dataset.width === d.width)
       props.querySelector('.dash').classList.toggle('active', !!d.dash)
     }
+    renderPrices(d)
     document.body.classList.toggle('drawing', draw.tool !== 'cursor')
   }
   draw.subscribe(render)

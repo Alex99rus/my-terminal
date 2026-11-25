@@ -227,7 +227,12 @@ body { display: flex; flex-direction: column; }
 .draw-props[data-kind="line"] .s4,
 .draw-props[data-kind="text"] .s2, .draw-props[data-kind="text"] .s3,
 .draw-props[data-kind="position"] .s1, .draw-props[data-kind="position"] .s2, .draw-props[data-kind="position"] .s3 { display: none; }
-.draw-props .risk input {
+.draw-props .prices { display: flex; align-items: center; gap: 8px; }
+.draw-props .prices:empty { display: none; }
+.draw-props .prices label { display: flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; }
+.draw-props .prices input { width: 100px; }
+.draw-props .risk input,
+.draw-props .prices input {
   width: 64px;
   background: var(--bg);
   border: 1px solid var(--border);
