@@ -809,6 +809,20 @@ export class DrawingController {
       el.addEventListener(t, (e) => this.mode === 'drag' && stop(e), opt)
     }
     el.addEventListener('pointerleave', () => this.setSnap(null))
+    // колёсико над выделенным рисунком двигает его на один шаг цены (Shift — на десять, Alt — по времени на одну свечу), а не масштабирует график
+    el.addEventListener('wheel', (e) => {
+      const sel = draw.selected
+      if (!sel || sel.key !== this.key || this.mode || e.ctrlKey || !e.deltaY) return
+      const { x, y } = this.local(e)
+      const hit = hitTest(draw.list(this.key), this.a, x, y)
+      if (!hit || hit.d.id !== sel.id) return
+      e.preventDefault()
+      e.stopPropagation()
+      const dir = e.deltaY < 0 ? 1 : -1
+      const n = dir * (e.shiftKey ? 10 : 1)
+      if (e.altKey) this.nudge(0, n)
+      else this.nudge(n, 0)
+    }, opt)
     // двойной щелчок по тексту — редактировать
     el.addEventListener('dblclick', (e) => {
       const { x, y } = this.local(e)
@@ -826,6 +840,33 @@ export class DrawingController {
 
   destroy() {
     this.offDraw()
+  }
+
+  /** Сдвигает выделенный рисунок целиком: на ticks клеток цены вверх и на bars свечей вправо (можно отрицательные) */
+  nudge(ticks, bars) {
+    const sel = draw.selected
+    const d = sel && draw.find(this.key, sel.id)
+    if (!d || d.type === 'alert') return false
+    const dec = this.pane.decimals ?? 2
+    const dp = ticks * 10 ** -dec
+    const dt = bars * this.pane.intervalSec
+    const P = (p) => +(p + dp).toFixed(12) // без округления: рамка не «ползёт» и не меняет пропорции
+    const T = (s) => s + dt
+    const patch = {}
+    if (d.price != null) patch.price = P(d.price)
+    if (d.time != null) patch.time = T(d.time)
+    if (d.p1) {
+      patch.p1 = { ...d.p1, time: T(d.p1.time), price: P(d.p1.price) }
+      patch.p2 = { ...d.p2, time: T(d.p2.time), price: P(d.p2.price) }
+    }
+    if (d.entry) {
+      patch.entry = { ...d.entry, time: T(d.entry.time), price: P(d.entry.price) }
+      patch.stop = P(d.stop)
+      patch.target = P(d.target)
+      patch.endTime = T(d.endTime)
+    }
+    draw.update(this.key, d.id, patch)
+    return true
   }
 
   // Магнит работает, когда он включён (или зажата Ctrl) и мы рисуем или тянем точку рисунка

@@ -438,6 +438,21 @@ export function initToolbar({ getActiveKey, getPanes, onStep }) {
 
   // ---------- Клавиши ----------
   const HOTKEYS = { KeyH: 'hline', KeyJ: 'hray', KeyV: 'vline', KeyT: 'trend', KeyR: 'rect', KeyF: 'fib' } // Alt+A — в alerts.js
+  // Стрелки двигают выделенный рисунок на один шаг цены / одну свечу, с Shift — на десять.
+  // Слушаем раньше остальных (capture), чтобы ↑↓ не переключали монету в списке, пока что-то выделено.
+  window.addEventListener('keydown', (e) => {
+    if (!draw.selected || e.ctrlKey || e.altKey || e.metaKey || e.target.closest('input, select, textarea')) return
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return
+    const panes = [...getPanes()].filter((p) => p.key === draw.selected.key)
+    const pane = panes.find((p) => p.isActive) || panes[0]
+    const n = e.shiftKey ? 10 : 1
+    const dy = e.key === 'ArrowUp' ? n : e.key === 'ArrowDown' ? -n : 0
+    const dx = e.key === 'ArrowRight' ? n : e.key === 'ArrowLeft' ? -n : 0
+    if (pane?.drawCtl.nudge(dy, dx)) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }, true)
   document.addEventListener('keydown', (e) => {
     if (e.target.closest('input, select, textarea')) return
     if (e.key === 'Escape') {
