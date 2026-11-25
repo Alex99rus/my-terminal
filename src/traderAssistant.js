@@ -114,7 +114,24 @@ export function taRows(v, p, fmt) {
   return rows
 }
 
-/** Таблица в левом нижнем углу окна графика */
+// Куда сдвинули таблицу (от её обычного места в левом нижнем углу), одно место для всех окон
+const POS_KEY = 'my-terminal-ta-pos'
+export function taOffset() {
+  try {
+    const o = JSON.parse(localStorage.getItem(POS_KEY))
+    return { dx: +o.dx || 0, dy: +o.dy || 0 }
+  } catch {
+    return { dx: 0, dy: 0 }
+  }
+}
+function saveOffset(o) {
+  try {
+    if (o.dx || o.dy) localStorage.setItem(POS_KEY, JSON.stringify(o))
+    else localStorage.removeItem(POS_KEY)
+  } catch {}
+}
+
+/** Таблица в левом нижнем углу окна графика; её можно перетащить мышью, двойной щелчок — вернуть на место */
 export class TATable {
   constructor(pane, ind) {
     this.pane = pane
@@ -123,6 +140,7 @@ export class TATable {
     this.el = document.createElement('div')
     this.el.className = 'ta-table'
     pane.el.append(this.el)
+    this.enableDrag()
     this.updateVisibility()
     this.timer = setInterval(() => this.visible && this.refresh(), CACHE_MS)
   }
@@ -188,10 +206,55 @@ export class TATable {
     this.place()
   }
 
-  // над шкалой времени и панелями индикаторов — в самом низу панели со свечами
+  // по умолчанию — над шкалой времени и панелями индикаторов, в самом низу панели со свечами; плюс сдвиг, если таблицу перетащили
   place() {
     const mainHeight = this.pane.chart.panes()[0]?.getHeight() || 0
-    this.el.style.top = Math.max(0, mainHeight - this.el.offsetHeight - 8) + 'px'
+    const w = this.el.offsetWidth
+    const h = this.el.offsetHeight
+    const baseTop = Math.max(0, mainHeight - h - 8)
+    const { dx, dy } = taOffset()
+    const maxLeft = Math.max(0, (this.pane.chartEl?.clientWidth || this.el.parentElement?.clientWidth || 0) - w - 60)
+    const left = Math.min(Math.max(0, dx), maxLeft)
+    const top = Math.min(Math.max(0, baseTop + dy), Math.max(0, mainHeight - h))
+    this.el.style.left = left + 'px'
+    this.el.style.top = top + 'px'
+    this.el.classList.toggle('moved', left > 0 || top !== baseTop)
+  }
+
+  // перетаскивание мышью или пальцем
+  enableDrag() {
+    const el = this.el
+    el.title = 'Потяните, чтобы переместить таблицу. Двойной щелчок — вернуть на место'
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return
+      e.preventDefault()
+      e.stopPropagation()
+      const mainHeight = this.pane.chart.panes()[0]?.getHeight() || 0
+      const baseTop = Math.max(0, mainHeight - el.offsetHeight - 8)
+      const start = { x: e.clientX, y: e.clientY, ...taOffset(), left: el.offsetLeft, top: el.offsetTop }
+      el.setPointerCapture(e.pointerId)
+      el.classList.add('dragging')
+      const move = (ev) => {
+        const left = start.left + ev.clientX - start.x
+        const top = start.top + ev.clientY - start.y
+        saveOffset({ dx: left, dy: top - baseTop })
+        for (const t of document.querySelectorAll('.ta-table')) t.dispatchEvent(new CustomEvent('ta-place'))
+      }
+      const up = () => {
+        el.classList.remove('dragging')
+        el.removeEventListener('pointermove', move)
+        el.removeEventListener('pointerup', up)
+        el.removeEventListener('pointercancel', up)
+      }
+      el.addEventListener('pointermove', move)
+      el.addEventListener('pointerup', up)
+      el.addEventListener('pointercancel', up)
+    })
+    el.addEventListener('dblclick', () => {
+      saveOffset({ dx: 0, dy: 0 })
+      for (const t of document.querySelectorAll('.ta-table')) t.dispatchEvent(new CustomEvent('ta-place'))
+    })
+    el.addEventListener('ta-place', () => this.place())
   }
 
   destroy() {
