@@ -41,3 +41,28 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
+
+  # Готовая сборка сайта также кладётся в ветку `site` — оттуда её можно забрать на свой сервер:
+  #   git clone --depth 1 -b site https://github.com/Alex99rus/my-terminal.git /var/www/terminal
+  #   (обновление: cd /var/www/terminal && git pull)
+  site-branch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Выложить сборку в ветку site
+        run: |
+          cd dist
+          git init -q -b site
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Сборка сайта из ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" site
