@@ -85,6 +85,14 @@ PY
 fi
 nginx -t && systemctl reload nginx
 
+cat > /usr/local/bin/alertd-user <<WRAP
+#!/bin/sh
+# Пользователи сигналов: alertd-user add Имя | list | del Имя
+set -a; . $ENVF; set +a
+exec python3 $SRC/tools/alertd/alertd.py user "\$@"
+WRAP
+chmod 755 /usr/local/bin/alertd-user
+
 echo "6/6 Запускаю…"
 systemctl daemon-reload
 systemctl enable alertd >/dev/null 2>&1
@@ -100,4 +108,5 @@ echo
 echo "    https://$DOMAIN/#alertkey=$KEY"
 echo
 echo "Потом: кнопка 🔔 → «Включить на этом устройстве» → «Проверить»."
+echo "Друзьям: команда  alertd-user add Имя  — покажет им отдельную ссылку."
 echo "=================================================================="
