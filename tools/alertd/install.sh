@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Установка сервера оповещений (alertd) на ваш сервер. Запускать под root:
+# Установка сервера оповещений (alertd, push на телефон) на ваш сервер. Запускать под root:
 #   curl -fsSL https://raw.githubusercontent.com/Alex99rus/my-terminal/main/tools/alertd/install.sh -o /tmp/alertd-install.sh && bash /tmp/alertd-install.sh
-# Бота для торговли скрипт не трогает. Можно запускать повторно: настройки обновятся, ключ сохранится.
+# Бота для торговли скрипт не трогает. Можно запускать повторно: ключ и подписки сохранятся.
 set -euo pipefail
 
 [ "$(id -u)" = 0 ] || { echo "Запустите от root."; exit 1; }
 command -v python3 >/dev/null || apt-get install -y python3
 command -v git >/dev/null || apt-get install -y git
 command -v curl >/dev/null || apt-get install -y curl
+python3 -c 'import cryptography' 2>/dev/null || NEEDRESTART_MODE=l apt-get install -y python3-cryptography
 
 SRC=/opt/my-terminal-src
 ENVF=/etc/alertd.env
@@ -19,30 +20,19 @@ if [ -d "$SRC/.git" ]; then git -C "$SRC" pull -q --ff-only; else git clone -q -
 echo "2/6 Создаю отдельного пользователя без прав входа…"
 id alertd >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin alertd
 
-echo "3/6 Настройка Телеграма"
-if [ -f "$ENVF" ] && grep -q '^ALERTD_BOT_TOKEN=.\+' "$ENVF"; then
-  read -rp "Телеграм уже настроен. Оставить как есть? [Y/n] " keep
-  case "${keep:-Y}" in n|N) rm -f "$ENVF.keep";; *) cp "$ENVF" "$ENVF.keep";; esac
-fi
+echo "3/6 Ключи и настройки…"
+DOMAIN=$(grep -m1 -oP '^\s*server_name\s+\K[^;\s]+' "$SITE" || true)
+[ -n "$DOMAIN" ] && [ "$DOMAIN" != "_" ] || { read -rp "Адрес вашего сайта (например alex-terminal.duckdns.org): " DOMAIN; }
 KEY=""
-if [ -f "$ENVF.keep" ]; then
-  set -a; . "$ENVF.keep"; set +a
-  TOKEN="$ALERTD_BOT_TOKEN"; CHAT="$ALERTD_CHAT_ID"; KEY="${ALERTD_KEY:-}"
-  rm -f "$ENVF.keep"
+if [ -f "$ENVF" ]; then
+  KEY=$(grep -m1 '^ALERTD_KEY=' "$ENVF" | cut -d= -f2- || true)
+  EXTRA=$(grep -E '^ALERTD_(BOT_TOKEN|CHAT_ID)=' "$ENVF" || true)
 else
-  echo "Откройте в Телеграме @BotFather, отправьте /newbot, придумайте имя и логин бота (логин заканчивается на bot)."
-  echo "Он пришлёт токен — длинную строку. Вставьте её сюда (на экране она не отображается) и нажмите Enter."
-  read -rsp "Токен бота: " TOKEN; echo
-  NAME=$(curl -fsS "https://api.telegram.org/bot${TOKEN}/getMe" 2>/dev/null | python3 -c 'import sys,json;print(json.load(sys.stdin)["result"]["username"])' 2>/dev/null) || { echo "Токен не подошёл. Проверьте и запустите снова."; exit 1; }
-  echo "Бот найден: @${NAME}"
-  echo "Теперь откройте этого бота в Телеграме и отправьте ему любое сообщение (например, /start)."
-  read -rp "Когда отправите, нажмите Enter… " _
-  CHAT=$(ALERTD_BOT_TOKEN="$TOKEN" python3 "$SRC/tools/alertd/alertd.py" --find-chat) || { echo "Сообщение боту не найдено. Отправьте ему /start и запустите скрипт снова."; exit 1; }
-  echo "Чат найден."
+  EXTRA=""
 fi
 [ -n "$KEY" ] || KEY=$(python3 -c 'import secrets;print(secrets.token_hex(16))')
 umask 077
-printf 'ALERTD_BOT_TOKEN=%s\nALERTD_CHAT_ID=%s\nALERTD_KEY=%s\n' "$TOKEN" "$CHAT" "$KEY" > "$ENVF"
+{ echo "ALERTD_KEY=$KEY"; echo "ALERTD_SUBJECT=https://$DOMAIN"; [ -n "$EXTRA" ] && echo "$EXTRA"; } > "$ENVF"
 chmod 600 "$ENVF"
 
 echo "4/6 Создаю службу…"
@@ -105,9 +95,9 @@ curl -fsS http://127.0.0.1:8787/api/alerts/ping >/dev/null && echo "Служба
 
 echo
 echo "=================================================================="
-echo "ГОТОВО. Ваш секретный ключ для терминала (никому не показывайте):"
+echo "ГОТОВО. Откройте эту ссылку НА ТЕЛЕФОНЕ (она содержит секретный ключ, никому не показывайте):"
 echo
-echo "    $KEY"
+echo "    https://$DOMAIN/#alertkey=$KEY"
 echo
-echo "Откройте терминал → кнопка 🔔 → «Сигналы на телефон» → вставьте ключ."
+echo "Потом: кнопка 🔔 → «Включить на этом устройстве» → «Проверить»."
 echo "=================================================================="

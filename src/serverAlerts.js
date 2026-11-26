@@ -1,9 +1,18 @@
 // Сигналы на телефон: терминал отдаёт список оповещений о цене вашему серверу (tools/alertd),
-// а сервер следит за ценой и шлёт сообщение в Телеграм, даже когда терминал закрыт.
+// а сервер следит за ценой и присылает push-уведомление на телефон, даже когда терминал закрыт.
 // Ключ хранится только в этом браузере. Без ключа модуль ничего не делает.
+// Ключ можно передать ссылкой вида https://сайт/#alertkey=КЛЮЧ — её показывает установщик на сервере.
 import { draw } from './drawings.js'
 
 const LS = 'terminal.alertKey'
+// ключ из ссылки: запоминаем и убираем из адресной строки
+try {
+  const m = location.hash.match(/alertkey=([\w-]{16,})/)
+  if (m) {
+    localStorage.setItem(LS, m[1])
+    history.replaceState(null, '', location.pathname + location.search)
+  }
+} catch {}
 const readKey = () => {
   try { return localStorage.getItem(LS) || '' } catch { return '' }
 }
@@ -11,6 +20,7 @@ const readKey = () => {
 export function initServerAlerts({ onFired }) {
   let key = readKey()
   let state = { text: '', ok: null } // что показать в меню
+  let subscribed = false // этот телефон/браузер подписан на уведомления
   const listeners = new Set()
   const setState = (text, ok) => {
     state = { text, ok }
@@ -51,7 +61,8 @@ export function initServerAlerts({ onFired }) {
           if (d && d.type === 'alert' && d.active) onFired(k, d, f.price)
         }
       }
-      setState(res.telegram ? `включено, на сервере ${res.active}` : 'сервер работает, но Телеграм не настроен', !!res.telegram)
+      const n = (res.push || 0) + (res.telegram ? 1 : 0)
+      setState(n ? `включено, на сервере оповещений: ${res.active}` : 'сервер работает, но ни один телефон не подписан', !!n)
     } catch (e) {
       setState(e.message === 'Неверный ключ' ? e.message : 'нет связи с сервером', false)
     } finally {
@@ -68,7 +79,37 @@ export function initServerAlerts({ onFired }) {
   setInterval(sync, 30000)
   if (key) sync()
 
+  const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+  async function refreshSub() {
+    try {
+      subscribed = supported() ? !!(await (await navigator.serviceWorker.ready).pushManager.getSubscription()) : false
+    } catch {
+      subscribed = false
+    }
+    listeners.forEach((f) => f())
+  }
+  if (key) refreshSub()
+
   return {
+    supported,
+    isSubscribed: () => subscribed,
+    // подписать этот телефон/браузер на уведомления
+    async enable() {
+      if (!supported()) return setState('этот браузер не умеет push. На iPhone добавьте сайт на экран «Домой» и откройте оттуда', false)
+      try {
+        if ((await Notification.requestPermission()) !== 'granted') return setState('уведомления запрещены — разрешите их в настройках сайта', false)
+        const reg = await navigator.serviceWorker.ready
+        const { key: pub } = await (await fetch('/api/push/key')).json()
+        const pad = '='.repeat((4 - (pub.length % 4)) % 4)
+        const bin = atob((pub + pad).replace(/-/g, '+').replace(/_/g, '/'))
+        const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: Uint8Array.from(bin, (c) => c.charCodeAt(0)) }))
+        await call('/api/push/subscribe', { subscription: sub.toJSON() })
+        await refreshSub()
+        await sync()
+      } catch (e) {
+        setState('не получилось включить: ' + (e.message || e), false)
+      }
+    },
     isOn: () => !!key,
     state: () => state,
     onChange: (f) => listeners.add(f),
@@ -79,12 +120,15 @@ export function initServerAlerts({ onFired }) {
       } catch {}
       state = { text: key ? 'проверяю…' : '', ok: null }
       listeners.forEach((f) => f())
-      if (key) sync()
+      if (key) {
+        sync()
+        refreshSub()
+      }
     },
     async test() {
       try {
         const r = await call('/api/alerts/test', {})
-        setState(r.ok ? 'проверочное сообщение отправлено — смотрите телефон' : 'не удалось отправить в Телеграм', !!r.ok)
+        setState(r.ok ? 'проверочное уведомление отправлено — смотрите телефон' : 'не вышло: ни один телефон не подписан (нажмите «Включить на этом устройстве»)', !!r.ok)
       } catch (e) {
         setState(e.message, false)
       }

@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Сервер оповещений: следит за ценами и шлёт сообщение в Телеграм, когда цена дошла до уровня.
+"""Сервер оповещений: следит за ценами и присылает уведомление на телефон, когда цена дошла до уровня.
 
-Терминал присылает сюда список ваших оповещений о цене (POST /api/alerts/sync). Сервер проверяет цены
-каждые несколько секунд и, когда уровень достигнут, отправляет сообщение через Telegram-бота.
-Работает, даже если терминал закрыт. Только стандартная библиотека Python, ничего ставить не нужно.
+Терминал присылает сюда список ваших оповещений о цене (POST /api/alerts/sync) и «подписку» телефона
+(как у сайтов с push-уведомлениями). Сервер проверяет цены каждые несколько секунд и, когда уровень
+достигнут, отправляет push (и, если настроено, сообщение в Телеграм). Работает, даже если терминал закрыт.
+Нужен только пакет python3-cryptography (ставит install.sh).
 
 Настройки берутся из переменных окружения (файл /etc/alertd.env):
-  ALERTD_BOT_TOKEN   токен Telegram-бота (от @BotFather) — секрет
-  ALERTD_CHAT_ID     ваш номер чата в Телеграме
+  ALERTD_SUBJECT     адрес вашего сайта, например https://alex-terminal.duckdns.org (нужен push-службам)
+  ALERTD_BOT_TOKEN   (необязательно) токен Telegram-бота
+  ALERTD_CHAT_ID     (необязательно) номер чата в Телеграме
   ALERTD_KEY         секретный ключ, который терминал присылает вместе с запросами
   ALERTD_PORT        порт (по умолчанию 8787), слушает только 127.0.0.1
   ALERTD_DATA        папка для файла с оповещениями (по умолчанию /var/lib/alertd)
@@ -23,9 +25,12 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import webpush
+
 BOT = os.environ.get('ALERTD_BOT_TOKEN', '')
 CHAT = os.environ.get('ALERTD_CHAT_ID', '')
 KEY = os.environ.get('ALERTD_KEY', '')
+SUBJECT = os.environ.get('ALERTD_SUBJECT', 'https://example.org')
 PORT = int(os.environ.get('ALERTD_PORT', '8787'))
 DATA = os.environ.get('ALERTD_DATA', '/var/lib/alertd')
 POLL_SEC = 3
@@ -43,7 +48,8 @@ PRICE_URLS = {
 MARKET_NAMES = {'futures': 'Binance фьюч', 'spot': 'Binance спот', 'bybit-futures': 'Bybit фьюч', 'bybit-spot': 'Bybit спот'}
 
 lock = threading.Lock()
-state = {'alerts': {}, 'fired': {}}  # alerts: id → {market, symbol, price, dir}; fired: id → {at, price}
+state = {'alerts': {}, 'fired': {}, 'subs': {}}  # alerts: id → {...}; fired: id → {at, price}; subs: адрес → подписка телефона
+vapid = {'priv': None, 'pub': ''}
 
 
 def log(*a):
@@ -56,6 +62,7 @@ def load():
             s = json.load(f)
         state['alerts'] = s.get('alerts', {})
         state['fired'] = s.get('fired', {})
+        state['subs'] = s.get('subs', {})
     except FileNotFoundError:
         pass
     except Exception as e:  # noqa: BLE001
@@ -98,7 +105,6 @@ def fmt(p):
 
 def send_telegram(text):
     if not BOT or not CHAT:
-        log('Телеграм не настроен, сообщение не отправлено:', text)
         return False
     try:
         body = urllib.parse.urlencode({'chat_id': CHAT, 'text': text}).encode()
@@ -109,7 +115,37 @@ def send_telegram(text):
         return False
 
 
-def check_once(get_prices=fetch_prices, send=send_telegram):
+def send_push(text):
+    """Отправляет уведомление на все подписанные телефоны. Возвращает, сколько приняли."""
+    with lock:
+        subs = list(state['subs'].values())
+    title, _, body = text.partition('\n')
+    payload = json.dumps({'title': title, 'body': body, 'url': './'}, ensure_ascii=False).encode()
+    ok, dead = 0, []
+    for s in subs:
+        code = webpush.send(s, payload, vapid['priv'], vapid['pub'], SUBJECT)
+        if 200 <= code < 300:
+            ok += 1
+        elif code in (404, 410):
+            dead.append(s['endpoint'])
+        else:
+            log('push не принят, код', code)
+    if dead:
+        with lock:
+            for e in dead:
+                state['subs'].pop(e, None)
+            save()
+    return ok
+
+
+def send_all(text):
+    """Push + (если настроен) Телеграм. True, если хоть куда-то дошло."""
+    a = send_push(text)
+    b = send_telegram(text) if BOT and CHAT else False
+    return bool(a) or b
+
+
+def check_once(get_prices=fetch_prices, send=send_all):
     """Один проход: сработавшие оповещения отправляются и переходят в «сработавшие»."""
     with lock:
         by_market = {}
@@ -206,8 +242,30 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:  # noqa: BLE001
             return self.reply(400, {'error': 'bad json'})
         if path == '/api/alerts/test':
-            ok = send_telegram('✅ Проверка: оповещения с терминала будут приходить сюда.')
-            return self.reply(200, {'ok': ok})
+            n = send_push('✅ Проверка\nОповещения с терминала будут приходить сюда.')
+            tg = send_telegram('✅ Проверка: оповещения с терминала будут приходить сюда.') if BOT and CHAT else False
+            return self.reply(200, {'ok': bool(n) or tg, 'push': n})
+        if path == '/api/push/subscribe':
+            sub = body.get('subscription') or {}
+            try:
+                ep = str(sub['endpoint'])
+                clean = {'endpoint': ep, 'keys': {'p256dh': str(sub['keys']['p256dh']), 'auth': str(sub['keys']['auth'])}}
+                if not ep.startswith('https://') or len(ep) > 1000:
+                    raise ValueError
+                webpush.b64d(clean['keys']['p256dh'])
+            except Exception:  # noqa: BLE001
+                return self.reply(400, {'error': 'bad subscription'})
+            with lock:
+                if len(state['subs']) >= 20 and ep not in state['subs']:
+                    return self.reply(400, {'error': 'too many devices'})
+                state['subs'][ep] = clean
+                save()
+            return self.reply(200, {'ok': True, 'devices': len(state['subs'])})
+        if path == '/api/push/unsubscribe':
+            with lock:
+                state['subs'].pop(str(body.get('endpoint', '')), None)
+                save()
+            return self.reply(200, {'ok': True})
         if path == '/api/alerts/sync':
             incoming = {}
             for a in body.get('alerts', [])[:MAX_ALERTS]:
@@ -220,12 +278,15 @@ class Handler(BaseHTTPRequestHandler):
                 fired = [{'id': i, **f} for i, f in state['fired'].items()]
                 active = len(state['alerts'])
                 save()
-            return self.reply(200, {'ok': True, 'active': active, 'fired': fired, 'telegram': bool(BOT and CHAT)})
+            return self.reply(200, {'ok': True, 'active': active, 'fired': fired, 'telegram': bool(BOT and CHAT), 'push': len(state['subs'])})
         self.reply(404, {'error': 'not found'})
 
     def do_GET(self):
-        if self.path.split('?')[0] == '/api/alerts/ping':
+        path = self.path.split('?')[0]
+        if path == '/api/alerts/ping':
             return self.reply(200, {'ok': True})
+        if path == '/api/push/key':  # открытый ключ не секрет
+            return self.reply(200, {'key': vapid['pub']})
         self.reply(404, {'error': 'not found'})
 
 
@@ -245,9 +306,10 @@ def main():
         sys.exit(find_chat())
     if not KEY or len(KEY) < 16:
         sys.exit('ALERTD_KEY не задан или слишком короткий (нужно хотя бы 16 символов)')
+    vapid['priv'], vapid['pub'] = webpush.load_or_create_vapid(os.path.join(DATA, 'vapid.json'))
     load()
     threading.Thread(target=loop, daemon=True).start()
-    log(f'запущен на 127.0.0.1:{PORT}; оповещений: {len(state["alerts"])}; Телеграм: {"да" if BOT and CHAT else "НЕТ"}')
+    log(f'запущен на 127.0.0.1:{PORT}; оповещений: {len(state["alerts"])}; телефонов: {len(state["subs"])}; Телеграм: {"да" if BOT and CHAT else "нет"}')
     ThreadingHTTPServer(('127.0.0.1', PORT), Handler).serve_forever()
 
 

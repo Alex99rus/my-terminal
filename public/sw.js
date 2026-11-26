@@ -1,7 +1,7 @@
 // Service worker — нужен, чтобы терминал можно было установить как приложение
 // и чтобы он открывался быстро (файлы сайта берутся из памяти телефона).
 // Данные бирж не кэшируем никогда — они всегда свежие.
-const CACHE = 'my-terminal-v1'
+const CACHE = 'my-terminal-v2'
 
 self.addEventListener('install', () => self.skipWaiting())
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()))
@@ -38,5 +38,30 @@ self.addEventListener('fetch', (e) => {
           return res
         }),
     ),
+  )
+})
+
+// Уведомления с сервера (сигнал о цене): приходят, даже когда терминал закрыт
+self.addEventListener('push', (e) => {
+  let d = {}
+  try { d = e.data ? e.data.json() : {} } catch {}
+  e.waitUntil(
+    self.registration.showNotification(d.title || '🔔 Оповещение', {
+      body: d.body || '',
+      icon: './icons/icon-192.png',
+      badge: './icons/icon-192.png',
+      tag: 'alert-' + Date.now(),
+      vibrate: [200, 100, 200],
+      data: { url: d.url || './' },
+    }),
+  )
+})
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close()
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const c = list[0]
+      return c ? c.focus() : self.clients.openWindow(e.notification.data?.url || './')
+    }),
   )
 })

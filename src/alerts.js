@@ -273,6 +273,7 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
             • <b>по индикаторам и движению цены</b> — кнопка «Умное оповещение».</div>`) +
       (rows.some((r) => !r.active) ? '<button class="al-clear">Удалить сработавшие</button>' : '') +
       `<div class="al-phone"><button class="al-phone-key">📱 Сигналы на телефон: ${phone.isOn() ? 'вкл.' : 'выкл.'}</button>` +
+      (phone.isOn() && !phone.isSubscribed() ? '<button class="al-phone-sub">🔔 Включить на этом устройстве</button>' : '') +
       (phone.isOn() ? '<button class="al-phone-test">Проверить</button>' : '') +
       (phone.state().text ? `<div class="al-phone-st ${phone.state().ok === false ? 'bad' : ''}">${phone.state().text}</div>` : '') +
       '</div>'
@@ -312,11 +313,15 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
       const k = window.prompt(
         phone.isOn()
           ? 'Секретный ключ сохранён. Вставьте новый или оставьте пустым, чтобы выключить сигналы на телефон:'
-          : 'Вставьте секретный ключ, который показал сервер после установки (инструкция — в «❓ Помощь»):',
+          : 'Вставьте секретный ключ, который показал сервер после установки (проще открыть на телефоне ссылку, которую он тоже показал):',
         '',
       )
-      if (k !== null) phone.setKey(k)
+      if (k !== null) {
+        phone.setKey(k)
+        if (k.trim()) phone.enable()
+      }
     }
+    menu.querySelector('.al-phone-sub')?.addEventListener('click', () => phone.enable())
     menu.querySelector('.al-phone-test')?.addEventListener('click', () => phone.test())
     menu.querySelector('.al-clear')?.addEventListener('click', () => {
       for (const { key, d } of allAlerts()) if (!d.active) draw.remove(key, d.id)
