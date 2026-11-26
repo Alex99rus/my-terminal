@@ -9,6 +9,7 @@ import { draw, makeAlert, ALERT_COLOR, ALERT_DONE_COLOR, drawingLevels, DRAWING_
 import { subscribeTickers } from './binance.js'
 import { smart, describe, openSmartDialog, initSmartAlerts } from './smartAlerts.js'
 import { marketShort } from './markets.js'
+import { initServerAlerts } from './serverAlerts.js'
 
 function decimalsFor(price) {
   if (price >= 1000) return 2
@@ -192,6 +193,17 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
     draw.select(pane.key, d.id)
   })
 
+  // ---------- Сигналы на телефон (через сервер и Телеграм) ----------
+  const phone = initServerAlerts({
+    // сервер уже поймал уровень (терминал был закрыт или не успел) — помечаем как сработавшее
+    onFired: (key, d, price) => {
+      draw.update(key, d.id, { active: false, color: ALERT_DONE_COLOR, triggeredAt: Date.now(), triggerPrice: price })
+      const { symbol, market } = splitKey(key)
+      popup(`${symbol} ${d.dir === 'up' ? 'вырос до' : 'упал до'} ${fmt(d.price)} (пока терминал был закрыт)`, symbol, market)
+    },
+  })
+  phone.onChange(() => renderMenu())
+
   // ---------- Список оповещений (кнопка 🔔) ----------
   const btn = document.getElementById('alertsBtn')
   const menu = document.getElementById('alertsMenu')
@@ -259,7 +271,11 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
             • <b>о цене</b> — 🔔 на панели слева и щелчок по графику, или <b>Alt+A</b>;<br>
             • <b>на линии</b> — выделите линию и нажмите 🔔 в панели сверху;<br>
             • <b>по индикаторам и движению цены</b> — кнопка «Умное оповещение».</div>`) +
-      (rows.some((r) => !r.active) ? '<button class="al-clear">Удалить сработавшие</button>' : '')
+      (rows.some((r) => !r.active) ? '<button class="al-clear">Удалить сработавшие</button>' : '') +
+      `<div class="al-phone"><button class="al-phone-key">📱 Сигналы на телефон: ${phone.isOn() ? 'вкл.' : 'выкл.'}</button>` +
+      (phone.isOn() ? '<button class="al-phone-test">Проверить</button>' : '') +
+      (phone.state().text ? `<div class="al-phone-st ${phone.state().ok === false ? 'bad' : ''}">${phone.state().text}</div>` : '') +
+      '</div>'
 
     menu.querySelector('.al-smart').onclick = () => {
       menu.classList.remove('open')
@@ -292,6 +308,16 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
         menu.classList.remove('open')
       }
     }
+    menu.querySelector('.al-phone-key').onclick = () => {
+      const k = window.prompt(
+        phone.isOn()
+          ? 'Секретный ключ сохранён. Вставьте новый или оставьте пустым, чтобы выключить сигналы на телефон:'
+          : 'Вставьте секретный ключ, который показал сервер после установки (инструкция — в «❓ Помощь»):',
+        '',
+      )
+      if (k !== null) phone.setKey(k)
+    }
+    menu.querySelector('.al-phone-test')?.addEventListener('click', () => phone.test())
     menu.querySelector('.al-clear')?.addEventListener('click', () => {
       for (const { key, d } of allAlerts()) if (!d.active) draw.remove(key, d.id)
       for (const { key, d } of drawingAlerts()) if (!d.alert.active) draw.update(key, d.id, { alert: null })
