@@ -307,6 +307,23 @@ export class Pane {
     this.candles.priceScale().applyOptions({ scaleMargins: { top: 0.12, bottom: this.showVolume === false ? 0.06 : 0.25 } })
     // слой с рисунками живёт на главной серии
     this.drawPrim = new DrawingsPrimitive(this.adapter, () => this.key, true, 1, () => this.drawCtl?.snap, () => this.drawCtl?.measure)
+    // чужие подписи на шкале (цена, таймер, линии демо-счёта) двигать нельзя — подписи рисунков раздвигаются вокруг них
+    this.drawPrim.getObstacles = () => {
+      const ys = []
+      const last = this.bars.at(-1)
+      if (style.priceLabel && last) {
+        const y = this.candles.priceToCoordinate(last.close)
+        if (y != null) {
+          ys.push(y)
+          if (style.countdown) ys.push(y + style.fontSize + 7)
+        }
+      }
+      for (const { priceLine } of this.paperLines?.values() || []) {
+        const y = this.candles.priceToCoordinate(priceLine.options().price)
+        if (y != null) ys.push(y)
+      }
+      return ys
+    }
     this.candles.attachPrimitive(this.drawPrim)
     // границы дня на таймфреймах до 1ч
     this.candles.attachPrimitive(new DayLinesPrimitive(this.chart, () => this.bars, () => this.intervalSec))

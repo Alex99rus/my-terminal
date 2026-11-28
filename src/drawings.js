@@ -216,6 +216,13 @@ export function makeAdapter(chart, getSeries, getBars, getSec) {
     priceToY: (p) => getSeries().priceToCoordinate(p),
     yToPrice: (y) => getSeries().coordinateToPrice(y),
     width: () => ts().width(), // ширина области графика без шкалы цен
+    height: () => {
+      try {
+        return chart.paneSize(0).height
+      } catch {
+        return 0
+      }
+    },
     logical: timeToLogical, // номер свечи (дробный) для времени
     bars: getBars,
     sec: getSec,
@@ -440,6 +447,34 @@ export function hitTest(list, a, x, y) {
 
 // ---------- Слой, который рисует ----------
 
+/**
+ * Раздвигает подписи на шкале цен, чтобы они не налезали друг на друга.
+ * ys — желаемые положения подписей (px), fixed — положения чужих подписей, которые двигать нельзя
+ * (последняя цена, таймер, линии демо-счёта), gap — минимальное расстояние между центрами, height — высота шкалы.
+ * Возвращает положения в том же порядке, что и ys.
+ */
+export function spreadLabels(ys, fixed, gap, height) {
+  const out = new Array(ys.length)
+  const placed = [...fixed]
+  const lo = gap / 2
+  const hi = height > gap ? height - gap / 2 : Infinity
+  const free = (c) => c >= lo && c <= hi && placed.every((p) => Math.abs(p - c) >= gap - 0.5)
+  const order = ys.map((y, i) => i).sort((i, j) => ys[i] - ys[j] || i - j)
+  for (const i of order) {
+    const y = ys[i]
+    let best = y
+    if (!free(y)) {
+      const cand = []
+      for (const p of placed) cand.push(p - gap, p + gap)
+      cand.sort((m, n) => Math.abs(m - y) - Math.abs(n - y))
+      best = cand.find(free) ?? y // нет места — остаётся где была
+    }
+    out[i] = best
+    placed.push(best)
+  }
+  return out
+}
+
 export class DrawingsPrimitive {
   /** adapter — перевод координат, getKey — какая монета в окне, showSelection — рисовать точки выделения */
   constructor(adapter, getKey, showSelection = true, scale = 1, getSnap = null, getMeasure = null) {
@@ -470,21 +505,16 @@ export class DrawingsPrimitive {
     return [this._view]
   }
 
-  // Подписи цены на правой шкале для горизонтальных линий и точек выделенного рисунка
+  // Подписи цены на правой шкале для горизонтальных линий и точек выделенного рисунка.
+  // Если подписи оказываются слишком близко (цены почти совпадают), раздвигаем их по вертикали,
+  // чтобы цифры не налезали друг на друга: сама линия остаётся на своей цене.
   priceAxisViews() {
-    const out = []
+    const items = []
     const a = this.a
     const label = (price, color, prefix = '') => {
       const y = a.priceToY(price)
       if (y == null) return
-      out.push({
-        coordinate: () => y,
-        text: () => prefix + a.format(price),
-        textColor: () => (color === '#ffffff' || color === '#ffeb3b' ? '#000' : '#fff'),
-        backColor: () => color,
-        visible: () => true,
-        tickVisible: () => true,
-      })
+      items.push({ y, text: prefix + a.format(price), color })
     }
     const key = this.getKey()
     for (const d of draw.list(key)) {
@@ -500,7 +530,16 @@ export class DrawingsPrimitive {
         label(d.p2.price, d.color)
       }
     }
-    return out
+    const shown = spreadLabels(items.map((i) => i.y), this.getObstacles?.() || [], (style.fontSize || 12) + 7, this.a.height?.() || 0)
+    return items.map((it, n) => ({
+      coordinate: () => it.y,
+      fixedCoordinate: () => shown[n],
+      text: () => it.text,
+      textColor: () => (it.color === '#ffffff' || it.color === '#ffeb3b' ? '#000' : '#fff'),
+      backColor: () => it.color,
+      visible: () => true,
+      tickVisible: () => true,
+    }))
   }
 
   render(ctx, size) {
