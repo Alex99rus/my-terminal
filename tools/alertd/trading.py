@@ -100,7 +100,7 @@ def get_exchange(market):
         'secret': acc['secret'],
         'enableRateLimit': True,
         'timeout': 15000,
-        'options': {**opts, 'adjustForTimeDifference': True},
+        'options': {**opts, 'adjustForTimeDifference': True, 'warnOnFetchOpenOrdersWithoutSymbol': False},
     })
     if acc.get('testnet'):
         ex.set_sandbox_mode(True)
@@ -181,7 +181,7 @@ def account(market):
                 for o in ex.fetch_open_orders(None, None, None, {'trigger': True} if trig else {}):
                     out['orders'].append(_order(o, algo=trig))
             except Exception as e:  # noqa: BLE001
-                log('не удалось получить ордера', market, type(e).__name__)
+                log('не удалось получить ордера', market, type(e).__name__, err_text(e)[:150])
         if market == 'bybit-futures':
             pass  # условные ордера Bybit возвращаются в общем списке
         return out
