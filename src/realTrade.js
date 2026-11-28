@@ -125,7 +125,7 @@ export function initRealTrade({ getActive, toast }) {
     const w = $('.rt-warn')
     if (!a?.configured) w.innerHTML = '⚠️ Для этого рынка на сервере нет API-ключа. Добавьте его командой <code>alertd-user keys set ' + esc(ui.market) + '</code> (см. README в tools/alertd).'
     else if (!status.enabled) w.innerHTML = '🔒 Торговля выключена на сервере — можно только смотреть счёт. Включить: <code>alertd-user trade on</code>'
-    else w.innerHTML = a.testnet ? '🧪 Тестовая сеть биржи — деньги не настоящие.' : '⚡ Это НАСТОЯЩИЙ счёт. Лимит ордера: ' + esc(status.limits.max_order_usd) + ' $, плечо до ' + esc(status.limits.max_leverage) + '.'
+    else w.innerHTML = a.testnet ? '🧪 Тестовая сеть биржи — деньги не настоящие.' : '⚡ Это НАСТОЯЩИЙ счёт. Лимит ордера: ' + (status.limits.max_order_usd > 0 ? esc(status.limits.max_order_usd) + ' $' : 'нет') + ', плечо до ' + esc(status.limits.max_leverage) + '.'
     w.className = 'rt-warn' + (a?.configured && status.enabled && !a.testnet ? ' live' : '')
     w.style.display = w.innerHTML ? '' : 'none'
     const sum = $('.pp-sum')

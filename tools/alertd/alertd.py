@@ -155,10 +155,11 @@ def cli_trade(args):
                 if len(args) > 3:
                     c['limits']['max_leverage'] = int(args[3])
             except ValueError:
-                print('Формат: trade limits МАКС_СУММА_ДОЛЛАРОВ [МАКС_ПЛЕЧО]')
+                print('Формат: trade limits МАКС_СУММА_ДОЛЛАРОВ (0 = без ограничения) [МАКС_ПЛЕЧО]')
                 return 1
             trading.save_cfg(c)
-        print(f"Торговля: {'включена' if c['limits']['enabled'] else 'выключена'}; макс. сумма ордера {c['limits']['max_order_usd']:.0f} $; макс. плечо {c['limits']['max_leverage']}")
+        mo = c['limits']['max_order_usd']
+        print(f"Торговля: {'включена' if c['limits']['enabled'] else 'выключена'}; макс. сумма ордера {'без ограничения' if mo <= 0 else f'{mo:.0f} $'}; макс. плечо {c['limits']['max_leverage']}")
         return 0
     markets = ' | '.join(trading.MARKETS)
     if sub == 'list' or not sub:

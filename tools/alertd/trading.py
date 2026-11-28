@@ -259,7 +259,7 @@ def place_order(p):
         cost_min = ((mk.get('limits') or {}).get('cost') or {}).get('min')
         if cost_min and notional < cost_min:
             raise TradeError(f'Сумма ордера {notional:.2f} меньше минимальной {cost_min}')
-        if not reduce and notional > lim['max_order_usd'] * 1.001:
+        if not reduce and lim['max_order_usd'] > 0 and notional > lim['max_order_usd'] * 1.001:
             raise TradeError(f"Сумма ордера {notional:.2f} $ больше лимита {lim['max_order_usd']:.0f} $ (alertd-user trade limits)")
         # стоп и тейк должны стоять с правильной стороны от цены
         if sl and ((side == 'buy' and sl >= ref) or (side == 'sell' and sl <= ref)):
