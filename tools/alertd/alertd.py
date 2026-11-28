@@ -389,10 +389,14 @@ class Handler(BaseHTTPRequestHandler):
                     incoming[c[0]] = c[1]
             with lock:
                 u = user(name)
+                device = str(body.get('device') or 'x')[:40]
+                # у каждого устройства свой список: телефон и компьютер не затирают друг друга
+                kept = {i: a for i, a in u['alerts'].items() if a.get('dev') not in (None, device)}
                 # уже сработавшие не возвращаем, даже если терминал ещё считает их активными
-                u['alerts'] = {i: a for i, a in incoming.items() if i not in u['fired']}
+                mine = {i: {**a, 'dev': device} for i, a in incoming.items() if i not in u['fired']}
+                u['alerts'] = {**kept, **mine}
                 fired = [{'id': i, **f} for i, f in u['fired'].items()]
-                active = len(u['alerts'])
+                active = len(mine)
                 save()
                 subs = len(u['subs'])
             return self.reply(200, {'ok': True, 'active': active, 'fired': fired, 'telegram': name == 'owner' and bool(BOT and CHAT), 'push': subs})

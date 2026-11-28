@@ -13,6 +13,16 @@ try {
     history.replaceState(null, '', location.pathname + location.search)
   }
 } catch {}
+// у каждого устройства свой номер: так телефон и компьютер не стирают оповещения друг друга
+const deviceId = () => {
+  try {
+    let id = localStorage.getItem('terminal.deviceId')
+    if (!id) localStorage.setItem('terminal.deviceId', (id = Math.random().toString(36).slice(2) + Date.now().toString(36)))
+    return id
+  } catch {
+    return 'x'
+  }
+}
 const readKey = () => {
   try { return localStorage.getItem(LS) || '' } catch { return '' }
 }
@@ -54,7 +64,7 @@ export function initServerAlerts({ onFired }) {
     if (!key || busy) return
     busy = true
     try {
-      const res = await call('/api/alerts/sync', { alerts: mine() })
+      const res = await call('/api/alerts/sync', { alerts: mine(), device: deviceId() })
       for (const f of res.fired || []) {
         for (const k of draw.keys()) {
           const d = draw.find(k, f.id)
