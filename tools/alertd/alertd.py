@@ -8,6 +8,7 @@
 
 Пользователей может быть несколько (вы и друзья): у каждого свой ключ, свои оповещения и свои телефоны.
 Управление — командой на сервере:  alertd-user add Имя | list | del Имя
+Сообщения всем:  alertd-user say "текст" (и пуш, и плашка в терминале) | push "текст" | news "текст" | news-off
 
 Настройки берутся из переменных окружения (файл /etc/alertd.env):
   ALERTD_SUBJECT     адрес вашего сайта, например https://alex-terminal.duckdns.org (нужен push-службам)
@@ -54,7 +55,7 @@ MARKET_NAMES = {'futures': 'Binance фьюч', 'spot': 'Binance спот', 'bybi
 
 lock = threading.Lock()
 # users: имя → {alerts: id → {...}, fired: id → {at, price}, subs: адрес → подписка телефона}
-state = {'users': {}}
+state = {'users': {}, 'news': None}  # news: последнее объявление для плашки в терминале {id, text, at}
 vapid = {'priv': None, 'pub': ''}
 
 
@@ -66,6 +67,7 @@ def load():
     try:
         with open(os.path.join(DATA, 'alerts.json'), encoding='utf-8') as f:
             s = json.load(f)
+        state['news'] = s.get('news')
         if 'users' in s:
             state['users'] = s['users']
         else:  # старый формат (один пользователь) → «owner»
@@ -173,7 +175,29 @@ def cli_users(args):
         write_users(stored)
         print(f'Пользователь {name} удалён, его ключ больше не работает.')
         return 0
-    print('Команды: add Имя | list | del Имя')
+    if cmd in ('say', 'push', 'news', 'news-off'):
+        text = ' '.join(args[1:]).strip()
+        if cmd != 'news-off' and not text:
+            print(f'Напишите текст в кавычках: alertd-user {cmd} "текст"')
+            return 1
+        payload = {'text': text, 'push': cmd in ('say', 'push'), 'news': cmd in ('say', 'news'), 'clear': cmd == 'news-off'}
+        try:
+            req = urllib.request.Request(
+                f'http://127.0.0.1:{PORT}/api/admin/broadcast', data=json.dumps(payload).encode(), headers={'X-Key': KEY}
+            )
+            r = json.loads(urllib.request.urlopen(req, timeout=60).read())
+        except Exception as e:  # noqa: BLE001
+            print('Служба alertd не отвечает:', e)
+            return 1
+        if cmd == 'news-off':
+            print('Плашка убрана.')
+        else:
+            if payload['push']:
+                print(f"Пуш отправлен на устройств: {r.get('push', 0)}")
+            if payload['news']:
+                print('Плашка появится в терминале у всех в течение 10 минут (или при следующем открытии).')
+        return 0
+    print('Команды: add Имя | list | del Имя | say "текст" | push "текст" | news "текст" | news-off')
     return 1
 
 
@@ -370,6 +394,25 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(n) or b'{}')
         except Exception:  # noqa: BLE001
             return self.reply(400, {'error': 'bad json'})
+        if path == '/api/admin/broadcast':
+            if name != 'owner':
+                return self.reply(403, {'error': 'owner only'})
+            text = str(body.get('text') or '').strip()[:500]
+            sent = 0
+            if body.get('clear'):
+                with lock:
+                    state['news'] = None
+                    save()
+            if body.get('news') and text:
+                with lock:
+                    state['news'] = {'id': str(int(time.time() * 1000)), 'text': text, 'at': int(time.time() * 1000)}
+                    save()
+            if body.get('push') and text:
+                with lock:
+                    names = list(state['users'])
+                for n in names:
+                    sent += send_push(n, '📢 Сообщение\n' + text[:200])
+            return self.reply(200, {'ok': True, 'push': sent})
         if path == '/api/alerts/test':
             n = send_push(name, '✅ Проверка\nОповещения с терминала будут приходить сюда.')
             tg = send_telegram('✅ Проверка: оповещения с терминала будут приходить сюда.') if name == 'owner' and BOT and CHAT else False
@@ -448,6 +491,10 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split('?')[0]
         if path == '/api/alerts/ping':
             return self.reply(200, {'ok': True})
+        if path == '/api/news':  # объявление для плашки в терминале: видят все, кто открыл сайт
+            with lock:
+                n = state.get('news') or {}
+            return self.reply(200, n)
         if path == '/api/push/key':  # открытый ключ не секрет
             return self.reply(200, {'key': vapid['pub']})
         self.reply(404, {'error': 'not found'})

@@ -1168,3 +1168,8 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
 .al-phone button:hover { color: var(--text); background: var(--border); }
 .al-phone-st { width: 100%; font-size: 12px; color: var(--muted); }
 .al-phone-st.bad { color: var(--down); }
+.news-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 3000; display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: var(--accent); color: #fff; font-size: 13px; line-height: 1.35; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); }
+.news-bar[hidden] { display: none; }
+.news-text { flex: 1; white-space: pre-wrap; }
+.news-ok { background: rgba(255, 255, 255, 0.2); border: none; color: #fff; border-radius: 5px; padding: 4px 10px; font: inherit; cursor: pointer; }
+.news-ok:hover { background: rgba(255, 255, 255, 0.35); }

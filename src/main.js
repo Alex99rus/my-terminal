@@ -13,6 +13,7 @@ import { initIndicatorsDialog } from './indicatorsDialog.js'
 import { initWatchlist } from './watchlist.js'
 import { initScreener } from './screener.js'
 import { initAlerts } from './alerts.js'
+import { initNews } from './news.js'
 import { MARKETS, marketOptions, isMoex, isDelayed, DEFAULT_SYMBOL } from './markets.js'
 import { openChartSettings, onStyleChange, style } from './chartSettings.js'
 import { paper } from './paper.js'
@@ -539,6 +540,7 @@ afterSymbolChange()
 
 // ---------- Оповещения ----------
 let alerts = null
+initNews()
 alerts = initAlerts({
   getPanes: () => panes,
   getActivePane: () => activePane,
