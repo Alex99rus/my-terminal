@@ -1184,3 +1184,5 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
 .pp-submit:disabled { opacity: 0.4; cursor: not-allowed; }
 .ind-btn[hidden] { display: none; }
 body.tb-hide-paper .tb-real { display: none; }
+.draw-props .to-real { display: none; }
+body.real-on .draw-props[data-kind="position"] .to-real { display: grid; color: #fff; background: #d4880f; padding: 0 10px; font-weight: 600; }

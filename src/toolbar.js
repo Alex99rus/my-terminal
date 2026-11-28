@@ -108,6 +108,7 @@ export function initToolbar({ getActiveKey, getPanes, onStep }) {
     <label class="risk" title="Сколько долларов вы готовы потерять, если сработает стоп">Риск $ <input type="number" min="1" step="1"></label>
     <button class="flip" title="Перевернуть: лонг ⇄ шорт">⇅</button>
     <button class="to-paper" title="Выставить эту позицию на демо-счёт: ордер на вход, стоп и тейк">▶ В демо</button>
+    <button class="to-real" title="Подставить эту позицию в панель «Реал» (настоящий счёт): вход, стоп, тейк и объём по риску. Ничего не отправляется, пока вы не подтвердите">▶ В реал</button>
     <span class="dp-sep s4"></span>
     <span class="bell-wrap">
       <button class="bell" title="Оповещение на этой линии">${ICONS.alert}</button>
@@ -360,6 +361,18 @@ export function initToolbar({ getActiveKey, getPanes, onStep }) {
     hint(type === 'market'
       ? `💼 Открыт ${long ? 'лонг' : 'шорт'} ${fmtQty(qty)} по рынку со стопом и тейком`
       : `💼 Выставлен ${type === 'limit' ? 'лимитный' : 'стоп'} ордер ${fmtQty(qty)} по ${fmtPrice(entry)} со стопом и тейком`)
+  }
+
+  // ▶ В реал: позиция с графика → форма панели «Реал» (отправка только после подтверждения там)
+  props.querySelector('.to-real').onclick = () => {
+    const sel = draw.selected
+    const d = draw.selectedDrawing()
+    if (!d?.entry) return
+    const last = paper.price(sel.key)
+    const risk = Math.abs(d.entry.price - d.stop)
+    if (!risk) return hint('⚠️ Стоп совпадает со входом')
+    const usd = (draw.settings.risk / risk) * d.entry.price
+    dispatchEvent(new CustomEvent('real-prefill', { detail: { key: sel.key, long: d.type === 'long', entry: d.entry.price, stop: d.stop, target: d.target, usd, last, hint } }))
   }
 
   // лонг ⇄ шорт: стоп и цель меняются местами

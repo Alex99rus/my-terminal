@@ -95,10 +95,12 @@ export function initRealTrade({ getActive, toast }) {
     try {
       status = await call('/api/trade/status')
       btn.hidden = false
+      document.body.classList.add('real-on')
       if (!ui.market || !TRADE_MARKETS.some((m) => m.code === ui.market)) ui.market = TRADE_MARKETS[0].code
       render()
     } catch {
-      btn.hidden = true // не владелец или сервер недоступен
+      btn.hidden = true
+      document.body.classList.remove('real-on') // не владелец или сервер недоступен
     }
   }
   async function refresh() {
@@ -226,6 +228,36 @@ export function initRealTrade({ getActive, toast }) {
     }
   }
 
+  // «▶ В реал» с плавающей панели рисунка: подставляем позицию в форму, отправка — только кнопкой и после подтверждения
+  addEventListener('real-prefill', (e) => {
+    const d = e.detail
+    const say = d.hint || toast
+    if (!status) return say('⚠️ Панель «Реал» недоступна (нет связи с сервером или вы не владелец)')
+    const [market, symbol] = String(d.key).split(':')
+    if (!TRADE_MARKETS.some((m) => m.code === market)) return say('⚠️ Для этого рынка реальная торговля не подключена')
+    const act = getActive()
+    if (!act || act.key !== d.key) return say('⚠️ Сделайте окно с этой монетой активным (щёлкните по нему) и повторите')
+    if (!status.accounts[market]?.configured) return say('⚠️ Для этого рынка на сервере нет API-ключа')
+    ui.market = market
+    ui.open = true
+    side = d.long ? 'buy' : 'sell'
+    let note = ''
+    type = d.last && Math.abs(d.entry - d.last) / d.last > 0.0005 ? 'limit' : 'market'
+    // Binance: стоп и тейк прикрепляются только к рыночному входу
+    if (type === 'limit' && market === 'futures') {
+      type = 'market'
+      note = ' Вход отложенный на Binance пока не поддерживается вместе со стопом — подставлен вход по рынку (цена входа другая!).'
+    }
+    form.price.value = type === 'limit' ? String(+d.entry.toPrecision(8)) : ''
+    form.usd.value = String(Math.round(d.usd * 100) / 100)
+    form.sl.value = String(+d.stop.toPrecision(8))
+    form.tp.value = String(+d.target.toPrecision(8))
+    ui.usd = parseFloat(form.usd.value) || 0
+    saveUI()
+    acc = null
+    applyOpen()
+    say('💰 Позиция подставлена в «Реал»: проверьте плечо и нажмите кнопку отправки.' + note)
+  })
   addEventListener('hashchange', () => setTimeout(loadStatus, 500))
   btn.hidden = true
   loadStatus()
