@@ -211,6 +211,24 @@ def cli_users(args):
 
     if args and args[0] in ('keys', 'trade'):
         return cli_trade(args)
+    if args and args[0] == 'newkey':  # заменить ключ владельца (старая ссылка перестаёт работать)
+        import re as _re
+        import secrets as _sec
+        import subprocess
+
+        envf = '/etc/alertd.env'
+        new = _sec.token_hex(16)
+        txt = open(envf, encoding='utf-8').read()
+        txt = _re.sub(r'(?m)^ALERTD_KEY=.*$', 'ALERTD_KEY=' + new, txt)
+        with open(envf, 'w', encoding='utf-8') as f:
+            f.write(txt)
+        us0 = read_users()
+        if us0.pop('owner', None) is not None:
+            write_users(us0)
+        subprocess.run(['systemctl', 'restart', 'alertd'], check=False)
+        print('Новый ключ владельца создан, старая ссылка больше не работает.')
+        print(f'Откройте на КАЖДОМ устройстве:  {SUBJECT}/#alertkey={new}')
+        return 0
 
     us = read_users()
     if KEY:
