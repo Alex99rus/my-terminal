@@ -30,23 +30,27 @@ LINE = re.compile(r'^(\S+) \S+ \S+ \[([^\]]+)\] "(\S+) (\S+)[^"]*" (\d{3}) \d+ "
 BOT_UA = re.compile(r'bot|crawl|spider|curl|wget|python|go-http|java|scan|leakix|censys|zgrab|nmap|masscan|headless|monitor|uptime|check', re.I)
 
 def ensure_asn():
-    """Если базы провайдеров нет — один раз скачать (около 9 МБ)."""
+    """Если базы провайдеров нет — один раз скачать (около 9 МБ), так же как это делает geoip-update."""
     import os
-    import urllib.request
+    import subprocess
     from datetime import date, timedelta
 
     if os.path.exists(ASN_DB):
         return
-    for back in (0, 1):
-        d = date.today().replace(day=1) - timedelta(days=0 if back == 0 else 1)
+    first = date.today().replace(day=1)
+    for d in (first, first - timedelta(days=1)):
         url = f'https://download.db-ip.com/free/dbip-asn-lite-{d:%Y-%m}.mmdb.gz'
-        try:
-            with urllib.request.urlopen(url, timeout=60) as r, open(ASN_DB, 'wb') as out:
-                out.write(gzip.decompress(r.read()))
-            return
-        except Exception:  # noqa: BLE001
-            if os.path.exists(ASN_DB):
-                os.remove(ASN_DB)
+        tmp = '/tmp/dbip-asn.gz'
+        r = subprocess.run(['curl', '-fsSL', '-A', 'Mozilla/5.0', url, '-o', tmp], capture_output=True, text=True)
+        if r.returncode == 0:
+            try:
+                with open(tmp, 'rb') as f, open(ASN_DB, 'wb') as out:
+                    out.write(gzip.decompress(f.read()))
+                return
+            except Exception as e:  # noqa: BLE001
+                print('не удалось распаковать базу провайдеров:', e)
+        else:
+            print('не удалось скачать', url, '-', (r.stderr or '').strip()[:120])
 
 
 try:
