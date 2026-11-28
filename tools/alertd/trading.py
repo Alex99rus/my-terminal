@@ -202,6 +202,29 @@ def _order(o, algo=False):
     }
 
 
+def max_leverage(p):
+    """Максимальное плечо для монеты: по данным биржи, но не выше потолка на сервере."""
+    market = p.get('market')
+    if market not in ('futures', 'bybit-futures'):
+        raise TradeError('Плечо есть только у фьючерсов')
+    cap = load_cfg()['limits']['max_leverage']
+    with _locks[market]:
+        ex = get_exchange(market)
+        sym = resolve(ex, market, p.get('symbol'))
+        best = None
+        try:  # Binance: ступени плеча (для первой ступени — самое высокое)
+            tiers = ex.fetch_market_leverage_tiers(sym)
+            vals = [float(t['maxLeverage']) for t in tiers if t.get('maxLeverage')]
+            best = max(vals) if vals else None
+        except Exception as e:  # noqa: BLE001
+            log('ступени плеча не получены', market, type(e).__name__)
+        if not best:
+            best = (((ex.market(sym).get('limits') or {}).get('leverage') or {}).get('max'))
+        if not best:
+            raise TradeError('Не удалось узнать максимальное плечо этой монеты')
+        return {'max': int(min(float(best), cap)), 'exchange_max': int(float(best)), 'cap': cap}
+
+
 # ---------- Ордера ----------
 def _check_enabled(market):
     c = load_cfg()

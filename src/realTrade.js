@@ -52,7 +52,7 @@ export function initRealTrade({ getActive, toast }) {
         <div class="pp-types"><button type="button" data-type="market">Рынок</button><button type="button" data-type="limit">Лимит</button></div>
         <label class="pp-price-row">Цена <input name="price" type="number" step="any"></label>
         <label>Сумма, $ <input name="usd" type="number" step="any" min="0"></label>
-        <label class="rt-fut">Плечо <input name="lev" type="number" min="1" max="125"></label>
+        <label class="rt-fut">Плечо <span class="pp-qty-wrap"><input name="lev" type="number" min="1" max="125"><button type="button" class="pp-risk rt-maxlev" title="Поставить максимальное плечо, которое биржа разрешает для этой монеты">макс</button></span></label>
         <label class="rt-fut">Стоп-лосс <input name="sl" type="number" step="any" placeholder="необязательно"></label>
         <label class="rt-fut">Тейк-профит <input name="tp" type="number" step="any" placeholder="необязательно"></label>
         <div class="pp-info"></div>
@@ -175,6 +175,22 @@ export function initRealTrade({ getActive, toast }) {
   form.usd.value = ui.usd
   form.lev.value = ui.lev
   form.oninput = () => { ui.usd = parseFloat(form.usd.value) || 0; ui.lev = parseInt(form.lev.value) || 1; saveUI(); updateInfo() }
+
+  $('.rt-maxlev').onclick = async () => {
+    const a = getActive()
+    if (!a) return toast('Нет активного графика')
+    if (a.market !== ui.market) return toast('Рынок графика не совпадает с выбранным в панели')
+    try {
+      const r = await call('/api/trade/maxlev', { market: ui.market, symbol: a.symbol })
+      form.lev.value = r.max
+      ui.lev = r.max
+      saveUI()
+      updateInfo()
+      toast(`Максимальное плечо для ${a.symbol}: ${r.max}x` + (r.max < r.exchange_max ? ` (биржа разрешает до ${r.exchange_max}x, но потолок на сервере ${r.cap}x)` : ''))
+    } catch (e) {
+      toast('❌ ' + e.message, 7000)
+    }
+  }
 
   async function act(fn, okText) {
     if (busy) return

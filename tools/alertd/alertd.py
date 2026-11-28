@@ -479,6 +479,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(200, trading.public_status())
             if path == '/api/trade/account':
                 return self.reply(200, trading.account(body.get('market')))
+            if path == '/api/trade/maxlev':
+                return self.reply(200, trading.max_leverage(body))
             if path == '/api/trade/order':
                 return self.reply(200, trading.place_order(body))
             if path == '/api/trade/cancel':
