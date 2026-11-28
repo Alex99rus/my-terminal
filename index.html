@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Мой терминал</title>
+    <!-- Приложение для телефона: иконка, название, цвет, полноэкранный режим -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="./icons/apple-180.png" />
+    <meta name="theme-color" content="#131722" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Терминал" />
+    <script type="module" crossorigin src="./assets/index-TVjETPiZ.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-4a8rC6Ja.css">
+  </head>
+  <body>
+    <!-- Верхняя панель -->
+    <header class="topbar">
+      <div class="logo tb-logo">📈<span class="lbl"> Мой терминал</span></div>
+
+      <input id="symbol" class="symbol" list="symbols" placeholder="Монета, например BTCUSDT" autocomplete="off" />
+      <button id="starBtn" class="star-btn" title="Добавить в список">☆</button>
+      <datalist id="symbols"></datalist>
+
+      <select id="market" class="market" title="Биржа и рынок"></select>
+
+      <!-- Тип графика — сразу для всех окон -->
+      <select id="chartType" class="market tb-charttype" title="Тип графика (для всех окон)"></select>
+
+      <!-- Настройки внешнего вида графика -->
+      <button id="settingsBtn" class="ind-btn" title="Настройки графика: цвета, линии, фон">⚙</button>
+
+      <!-- Индикаторы -->
+      <button id="indBtn" class="ind-btn" title="Индикаторы">ƒx<span class="lbl"> Индикаторы</span></button>
+
+      <!-- Раскладка окон: одна кнопка, по нажатию — меню со всеми раскладками -->
+      <div class="layout-pick">
+        <button id="layoutBtn" class="layout-btn" title="Раскладка окон">
+          <span id="layoutCurrent"></span><span class="arrow">▾</span>
+        </button>
+        <div id="layouts" class="layouts-menu"></div>
+      </div>
+
+      <!-- Кнопки синхронизации -->
+      <div class="sync tb-sync">
+        <button data-sync="symbol" title="Одна монета во всех окнах">🔗<span class="lbl"> Монета</span></button>
+        <button data-sync="crosshair" title="Перекрестие мыши видно во всех окнах">✛<span class="lbl"> Перекрестие</span></button>
+        <button data-sync="time" title="Прокрутка одного окна сдвигает остальные к тому же времени">⏱<span class="lbl"> Время</span></button>
+      </div>
+
+      <!-- Снимок экрана -->
+      <div class="snap tb-snap">
+        <button id="snapBtn" title="Снимок активного окна (Alt+S)">📷<span class="lbl"> Снимок</span></button>
+        <button id="snapMenuBtn" class="snap-arrow" title="Другие варианты снимка">▾</button>
+        <div id="snapMenu" class="snap-menu">
+          <div class="snap-title">Что снимать</div>
+          <label><input type="radio" name="snapWhat" value="active" /> Активное окно</label>
+          <label><input type="radio" name="snapWhat" value="all" /> Все окна одной картинкой</label>
+          <div class="snap-title">Качество</div>
+          <div class="snap-scales">
+            <label><input type="radio" name="snapScale" value="2" /> ×2</label>
+            <label><input type="radio" name="snapScale" value="3" /> ×3</label>
+            <label><input type="radio" name="snapScale" value="4" /> ×4</label>
+          </div>
+          <div class="snap-size" id="snapSize"></div>
+          <div class="snap-title">Куда</div>
+          <label><input type="radio" name="snapTo" value="file" /> Скачать PNG-файл</label>
+          <label><input type="radio" name="snapTo" value="clipboard" /> Копировать (потом Ctrl+V)</label>
+          <button id="snapGo" class="snap-go">Сделать снимок</button>
+        </div>
+      </div>
+
+      <!-- Оповещения: кнопка со счётчиком и выпадающий список -->
+      <div class="alerts-pick">
+        <button id="alertsBtn" class="ind-btn" title="Оповещения о цене">🔔 <span class="count"></span></button>
+        <div id="alertsMenu" class="alerts-menu"></div>
+      </div>
+
+      <button id="paperBtn" class="ind-btn tb-paper" title="Демо-счёт: виртуальная торговля">💼<span class="lbl"> Демо</span></button>
+      <button id="realBtn" class="ind-btn tb-real" title="Реальная торговля через API-ключи (только владелец)" hidden>💰<span class="lbl"> Реал</span></button>
+      <button id="syncBtn" class="ind-btn tb-phone" title="Синхронизация с телефоном и другими устройствами">📱<span class="lbl"> Телефон</span> <span class="dot"></span></button>
+      <button id="helpBtn" class="ind-btn help-btn tb-help" title="Видеоинструкция и связь с разработчиком">❓<span class="lbl"> Помощь</span></button>
+      <button id="wlToggle" class="ind-btn tb-list" title="Список монет">☰<span class="lbl"> Список</span></button>
+
+      <div class="price tb-price">
+        <span id="last">—</span>
+        <span id="change"></span>
+        <span id="delayNote" class="delay-note" hidden title="Московская биржа бесплатно даёт данные с задержкой 15 минут. Без задержки — только по платной подписке биржи.">⏱ задержка 15 мин</span>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <!-- Панель инструментов рисования слева -->
+      <aside id="toolbar" class="toolbar"></aside>
+
+      <!-- Сюда добавляются окна графиков -->
+      <main id="grid" class="grid"></main>
+
+      <!-- Список монет справа -->
+      <aside id="watchlist" class="watchlist"></aside>
+
+      <!-- Настройки выделенного рисунка: цвет, толщина, пунктир, удалить -->
+      <div id="drawProps" class="draw-props"></div>
+    </div>
+
+    <!-- Демо-счёт: панель внизу -->
+    <section id="paper" class="paper"></section>
+    <section id="real" class="paper real"></section>
+
+    <!-- Всплывающее сообщение -->
+    <div id="toast" class="toast"></div>
+
+  </body>
+</html>
