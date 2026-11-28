@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Кто на самом деле заходил на сайт: настоящие посетители с городом и страной, без сканеров.
 
-Настоящим считается адрес, у которого браузер открыл страницу И загрузил файлы сайта (/assets/…) —
-сканеры обычно просят только отдельные адреса и файлы не грузят. Боты по названию программы тоже отсеиваются.
+Настоящим считается адрес, у которого браузер открыл страницу И загрузил файлы сайта (/assets/…),
+или который успешно синхронизировал сигналы (нужен секретный ключ). Адреса облачных серверов и хостингов
+(Amazon, Google, OVH, Hetzner…) показываются отдельно: это почти всегда роботы-проверяльщики.
 
-  python3 visitors.py [свой_IP …]       — свои адреса не показывать
+  python3 visitors.py [--all] [свой_IP …]
+     --all  — показать и облачные серверы тоже
 """
 import glob
 import gzip
@@ -15,15 +17,59 @@ from datetime import datetime
 
 LOG = '/var/log/nginx/access.log*'
 DB = '/var/lib/GeoIP/dbip-city-lite.mmdb'
+ASN_DB = '/var/lib/GeoIP/dbip-asn-lite.mmdb'
+HOSTING = re.compile(
+    r'amazon|aws|google|microsoft|azure|ovh|hetzner|digitalocean|linode|akamai|scaleway|oracle|contabo|vultr|choopa|'
+    r'm247|datacamp|cdn77|leaseweb|quadranet|cloud|hosting|hoster|server|vps|colo|datacenter|data center|dedic|'
+    r'constant|psychz|frantech|buyvm|ionos|upcloud|alibaba|tencent|huawei cloud|digital ocean|packet|equinix|zenlayer|'
+    r'stark industries|aeza|selectel|timeweb|reg\.ru|firstbyte|vdsina|netcup|ipxo|ip volume|colocation|'
+    r'clouvider|path network|cogent|zscaler|palo alto',
+    re.I,
+)
 LINE = re.compile(r'^(\S+) \S+ \S+ \[([^\]]+)\] "(\S+) (\S+)[^"]*" (\d{3}) \d+ "[^"]*" "([^"]*)"')
 BOT_UA = re.compile(r'bot|crawl|spider|curl|wget|python|go-http|java|scan|leakix|censys|zgrab|nmap|masscan|headless|monitor|uptime|check', re.I)
+
+def ensure_asn():
+    """Если базы провайдеров нет — один раз скачать (около 9 МБ)."""
+    import os
+    import urllib.request
+    from datetime import date, timedelta
+
+    if os.path.exists(ASN_DB):
+        return
+    for back in (0, 1):
+        d = date.today().replace(day=1) - timedelta(days=0 if back == 0 else 1)
+        url = f'https://download.db-ip.com/free/dbip-asn-lite-{d:%Y-%m}.mmdb.gz'
+        try:
+            with urllib.request.urlopen(url, timeout=60) as r, open(ASN_DB, 'wb') as out:
+                out.write(gzip.decompress(r.read()))
+            return
+        except Exception:  # noqa: BLE001
+            if os.path.exists(ASN_DB):
+                os.remove(ASN_DB)
+
 
 try:
     import maxminddb
 
     geo = maxminddb.open_database(DB)
+    ensure_asn()
+    try:
+        asn = maxminddb.open_database(ASN_DB)
+    except Exception:  # noqa: BLE001
+        asn = None
 except Exception:  # noqa: BLE001
-    geo = None
+    geo = asn = None
+
+
+def provider(ip):
+    if not asn:
+        return ''
+    try:
+        r = asn.get(ip) or {}
+        return str(r.get('autonomous_system_organization') or r.get('organization') or '')
+    except Exception:  # noqa: BLE001
+        return ''
 
 
 def where(ip):
@@ -52,7 +98,8 @@ def lines():
             yield from fh
 
 
-own = set(sys.argv[1:])
+show_all = '--all' in sys.argv
+own = {a for a in sys.argv[1:] if not a.startswith('--')}
 v = defaultdict(lambda: {'page': 0, 'assets': 0, 'api': 0, 'days': set(), 'first': None, 'last': None, 'ua': ''})
 for ln in lines():
     m = LINE.match(ln)
@@ -70,7 +117,7 @@ for ln in lines():
         d['page'] += 1
     elif status in ('200', '304') and path.startswith('/assets/'):
         d['assets'] += 1
-    elif path.startswith('/api/'):
+    elif path.startswith('/api/alerts/sync') and status == '200':  # только с настоящим ключом
         d['api'] += 1
     else:
         continue
@@ -79,12 +126,26 @@ for ln in lines():
     d['last'] = max(d['last'] or t, t)
     d['ua'] = ua
 
-rows = [(ip, d) for ip, d in v.items() if (d['page'] or d['api']) and (d['assets'] or d['api'])]
+rows = [(ip, d) for ip, d in v.items() if (d['page'] and d['assets']) or d['api']]
 rows.sort(key=lambda r: r[1]['last'], reverse=True)
-print(f"Настоящие посетители (браузер загрузил сайт). Найдено: {len(rows)}\n")
-print(f"{'Адрес':<16} {'Откуда':<34} {'Устройство':<9} {'Дней':>4} {'Открытий':>8} {'Сигналы':>7}  Последний раз")
-for ip, d in rows:
-    print(f"{ip:<16} {where(ip)[:34]:<34} {device(d['ua']):<9} {len(d['days']):>4} {d['page']:>8} {'да' if d['api'] else '':>7}  {d['last']:%d.%m %H:%M}")
-if not geo:
-    print('\n(Базы адресов нет — страны не показаны. Запустите stats-setup.sh и python3-maxminddb.)')
-print('\nВремя — по часам сервера (UTC+1: на 2 часа раньше московского).')
+cloud = [(ip, d) for ip, d in rows if HOSTING.search(provider(ip))] if asn else []
+people = [r for r in rows if r not in cloud]
+
+
+def table(title, rs):
+    print(f"{title}: {len(rs)}\n")
+    print(f"{'Адрес':<16} {'Откуда':<30} {'Провайдер':<24} {'Устройство':<9} {'Дней':>4} {'Откр.':>5} {'Сигн.':>5}  Последний раз")
+    for ip, d in rs:
+        print(f"{ip:<16} {where(ip)[:30]:<30} {provider(ip)[:24]:<24} {device(d['ua']):<9} {len(d['days']):>4} {d['page']:>5} {'да' if d['api'] else '':>5}  {d['last']:%d.%m %H:%M}")
+    print()
+
+
+table('Скорее живые люди (домашний и мобильный интернет)', people)
+if cloud:
+    if show_all:
+        table('Облачные серверы и хостинги (скорее роботы)', cloud)
+    else:
+        print(f'Ещё {len(cloud)} адресов — облачные серверы и хостинги (скорее роботы). Показать: python3 visitors.py --all\n')
+if not asn:
+    print('(Базы провайдеров нет — разделить людей и облачные серверы не удалось.)')
+print('Время — по часам сервера (UTC+1: на 2 часа раньше московского).')
