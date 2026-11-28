@@ -29,6 +29,7 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import trading
 import webpush
 
 BOT = os.environ.get('ALERTD_BOT_TOKEN', '')
@@ -135,9 +136,81 @@ def key_to_user(k):
     return found
 
 
+def cli_trade(args):
+    """alertd-user keys set|list|test|remove <рынок> [--testnet] / trade on|off|limits|status"""
+    import getpass
+
+    cmd, sub = args[0], (args[1] if len(args) > 1 else '')
+    c = trading.load_cfg()
+    if cmd == 'trade':
+        if sub in ('on', 'off'):
+            c['limits']['enabled'] = sub == 'on'
+            trading.save_cfg(c)
+            print('Торговля с терминала ВКЛЮЧЕНА' if sub == 'on' else 'Торговля с терминала выключена (просмотр счёта остаётся)')
+            return 0
+        if sub == 'limits':
+            try:
+                if len(args) > 2:
+                    c['limits']['max_order_usd'] = float(args[2])
+                if len(args) > 3:
+                    c['limits']['max_leverage'] = int(args[3])
+            except ValueError:
+                print('Формат: trade limits МАКС_СУММА_ДОЛЛАРОВ [МАКС_ПЛЕЧО]')
+                return 1
+            trading.save_cfg(c)
+        print(f"Торговля: {'включена' if c['limits']['enabled'] else 'выключена'}; макс. сумма ордера {c['limits']['max_order_usd']:.0f} $; макс. плечо {c['limits']['max_leverage']}")
+        return 0
+    markets = ' | '.join(trading.MARKETS)
+    if sub == 'list' or not sub:
+        for m in trading.MARKETS:
+            a = c['accounts'].get(m)
+            print(f"{m:14} {'ключ добавлен' + (' (тестовая сеть)' if a.get('testnet') else '') if a else '—'}")
+        return 0
+    m = args[2] if len(args) > 2 else ''
+    if m not in trading.MARKETS:
+        print(f'Формат: keys {sub} <рынок>   где рынок: {markets}')
+        return 1
+    if sub == 'remove':
+        c['accounts'].pop(m, None)
+        trading.save_cfg(c)
+        print('Ключ удалён')
+        return 0
+    if sub == 'set':
+        print('Ключи вводятся скрыто (на экране не видны). Права на вывод средств у ключа должны быть ВЫКЛЮЧЕНЫ.')
+        k = getpass.getpass('API Key: ').strip()
+        sec = getpass.getpass('API Secret: ').strip()
+        if len(k) < 8 or len(sec) < 8:
+            print('Пустой или слишком короткий ключ — отмена')
+            return 1
+        c['accounts'][m] = {'key': k, 'secret': sec, 'testnet': '--testnet' in args}
+        trading.save_cfg(c)
+        print('Ключ сохранён на сервере. Проверка: alertd-user keys test ' + m)
+        return 0
+    if sub == 'test':
+        try:
+            ex = trading.get_exchange(m)
+            p = trading.permissions(ex, m)
+            a = trading.account(m)
+        except Exception as e:  # noqa: BLE001
+            print('Ошибка:', trading.err_text(e))
+            return 1
+        print(f"Связь с биржей есть. Баланс USDT: всего {a['usdt']['total']}, свободно {a['usdt']['free']}; позиций: {len(a['positions'])}")
+        if p['withdraw']:
+            print('⚠️  У КЛЮЧА ВКЛЮЧЁН ВЫВОД СРЕДСТВ. Отключите это право на бирже и создайте ключ заново!')
+            return 2
+        print('Вывод средств у ключа: ' + ('выключен ✅' if p['withdraw'] is False else 'не удалось проверить'))
+        print('Привязка к IP: ' + ('есть ✅' if p['ip_restricted'] else 'нет (лучше добавить IP сервера 82.25.60.228)' if p['ip_restricted'] is False else 'не удалось проверить'))
+        return 0
+    print('Команды: keys list | keys set <рынок> [--testnet] | keys test <рынок> | keys remove <рынок> | trade on|off | trade limits СУММА $ [ПЛЕЧО]')
+    return 1
+
+
 def cli_users(args):
     import re
     import secrets
+
+    if args and args[0] in ('keys', 'trade'):
+        return cli_trade(args)
 
     us = read_users()
     if KEY:
@@ -381,6 +454,25 @@ class Handler(BaseHTTPRequestHandler):
     def who(self):
         return key_to_user(self.headers.get('X-Key', ''))
 
+    def trade_api(self, path, body):
+        try:
+            if path == '/api/trade/status':
+                return self.reply(200, trading.public_status())
+            if path == '/api/trade/account':
+                return self.reply(200, trading.account(body.get('market')))
+            if path == '/api/trade/order':
+                return self.reply(200, trading.place_order(body))
+            if path == '/api/trade/cancel':
+                return self.reply(200, trading.cancel(body))
+            if path == '/api/trade/close':
+                return self.reply(200, trading.close_position(body))
+        except trading.TradeError as e:
+            return self.reply(400, {'error': str(e)})
+        except Exception as e:  # noqa: BLE001
+            log('trade error', path, type(e).__name__)
+            return self.reply(500, {'error': 'Ошибка: ' + trading.err_text(e)})
+        self.reply(404, {'error': 'not found'})
+
     def do_POST(self):
         path = self.path.split('?')[0]
         name = self.who()
@@ -394,6 +486,10 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(n) or b'{}')
         except Exception:  # noqa: BLE001
             return self.reply(400, {'error': 'bad json'})
+        if path.startswith('/api/trade/'):
+            if name != 'owner':
+                return self.reply(403, {'error': 'Торговля доступна только владельцу'})
+            return self.trade_api(path, body)
         if path == '/api/admin/broadcast':
             if name != 'owner':
                 return self.reply(403, {'error': 'owner only'})

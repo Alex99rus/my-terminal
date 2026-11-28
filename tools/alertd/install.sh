@@ -9,6 +9,11 @@ command -v python3 >/dev/null || apt-get install -y python3
 command -v git >/dev/null || apt-get install -y git
 command -v curl >/dev/null || apt-get install -y curl
 python3 -c 'import cryptography' 2>/dev/null || NEEDRESTART_MODE=l apt-get install -y python3-cryptography
+# для торговли с терминала: отдельное окружение с библиотекой ccxt (бота не трогает)
+python3 -c 'import venv, ensurepip' 2>/dev/null || NEEDRESTART_MODE=l apt-get install -y python3-venv
+VENV=/opt/alertd-venv
+[ -x $VENV/bin/python ] || python3 -m venv --system-site-packages $VENV
+$VENV/bin/python -c 'import ccxt' 2>/dev/null || $VENV/bin/pip install -q ccxt
 
 SRC=/opt/my-terminal-src
 ENVF=/etc/alertd.env
@@ -46,7 +51,7 @@ Wants=network-online.target
 User=alertd
 EnvironmentFile=$ENVF
 StateDirectory=alertd
-ExecStart=/usr/bin/python3 $SRC/tools/alertd/alertd.py
+ExecStart=$VENV/bin/python $SRC/tools/alertd/alertd.py
 Restart=always
 RestartSec=5
 NoNewPrivileges=true
@@ -89,7 +94,7 @@ cat > /usr/local/bin/alertd-user <<WRAP
 #!/bin/sh
 # Пользователи сигналов: alertd-user add Имя | list | del Имя
 set -a; . $ENVF; set +a
-exec python3 $SRC/tools/alertd/alertd.py user "\$@"
+exec $VENV/bin/python $SRC/tools/alertd/alertd.py user "\$@"
 WRAP
 chmod 755 /usr/local/bin/alertd-user
 
