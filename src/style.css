@@ -1173,3 +1173,14 @@ body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-are
 .news-text { flex: 1; white-space: pre-wrap; }
 .news-ok { background: rgba(255, 255, 255, 0.2); border: none; color: #fff; border-radius: 5px; padding: 4px 10px; font: inherit; cursor: pointer; }
 .news-ok:hover { background: rgba(255, 255, 255, 0.35); }
+
+/* ---------- Реальная торговля ---------- */
+.rt-market { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; font: inherit; font-size: 13px; }
+.rt-warn { padding: 5px 10px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border); }
+.rt-warn.live { color: #f5a623; }
+.rt-warn code { background: var(--border); padding: 1px 4px; border-radius: 3px; user-select: all; }
+.pp-table td.up, .pp-table td .up { color: var(--up); }
+.pp-table td.down { color: var(--down); }
+.pp-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+.ind-btn[hidden] { display: none; }
+body.tb-hide-paper .tb-real { display: none; }

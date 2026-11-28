@@ -18,6 +18,7 @@ import { MARKETS, marketOptions, isMoex, isDelayed, DEFAULT_SYMBOL } from './mar
 import { openChartSettings, onStyleChange, style } from './chartSettings.js'
 import { paper } from './paper.js'
 import { initPaperUI } from './paperUI.js'
+import { initRealTrade } from './realTrade.js'
 import './style.css'
 
 // ---------- Раскладки ----------
@@ -572,6 +573,18 @@ initPaperUI({
     },
   onOpen: (symbol, market) => openSymbol(symbol, market),
   toast: (text) => toast(text),
+})
+
+// ---------- Реальная торговля (только владелец, через сервер) ----------
+initRealTrade({
+  getActive: () =>
+    activePane && {
+      key: activePane.key,
+      symbol: activePane.symbol,
+      market: activePane.market,
+      price: paper.price(activePane.key) ?? activePane.bars.at(-1)?.close,
+    },
+  toast: (text, ms) => toast(text, ms),
 })
 
 // ---------- Рисование ----------
