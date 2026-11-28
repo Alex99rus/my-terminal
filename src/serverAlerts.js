@@ -86,6 +86,13 @@ export function initServerAlerts({ onFired }) {
     timer = setTimeout(sync, 800)
   }
   draw.subscribe(later)
+  // ссылку с ключом вставили в уже открытую вкладку: страница не перезагружается, поэтому читаем ключ сами
+  addEventListener('hashchange', () => {
+    const m = location.hash.match(/alertkey=([\w-]{16,})/)
+    if (!m) return
+    history.replaceState(null, '', location.pathname + location.search)
+    api.setKey(m[1])
+  })
   setInterval(sync, 30000)
   if (key) sync()
 
@@ -100,7 +107,7 @@ export function initServerAlerts({ onFired }) {
   }
   if (key) refreshSub()
 
-  return {
+  const api = {
     supported,
     isSubscribed: () => subscribed,
     // подписать этот телефон/браузер на уведомления
@@ -144,4 +151,5 @@ export function initServerAlerts({ onFired }) {
       }
     },
   }
+  return api
 }
