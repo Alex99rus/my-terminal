@@ -273,11 +273,20 @@ def check_once(get_prices=fetch_prices, send=send_all):
                     p = prices.get(a['symbol'])
                     if p is None:
                         continue
-                    if (a['dir'] == 'up' and p >= a['price']) or (a['dir'] == 'down' and p <= a['price']):
+                    if a['dir'] == 'cross':
+                        prev = a.get('prev')
+                        a['prev'] = p
+                        if prev is not None and prev != p and (prev - a['price']) * (p - a['price']) <= 0:
+                            a['up'] = p > prev
+                            hits.append((name, i, a, p))
+                    elif (a['dir'] == 'up' and p >= a['price']) or (a['dir'] == 'down' and p <= a['price']):
                         hits.append((name, i, a, p))
     for name, i, a, p in hits:
-        arrow = 'вырос до' if a['dir'] == 'up' else 'упал до'
-        text = f"🔔 {a['symbol']} ({MARKET_NAMES.get(a['market'], a['market'])}) {arrow} {fmt(a['price'])}\nСейчас: {fmt(p)}"
+        if a['dir'] == 'cross':
+            text = f"🔔 {a['symbol']} ({MARKET_NAMES.get(a['market'], a['market'])}) пересёк {'вверх' if a.get('up') else 'вниз'}: {a.get('label', 'линия')} ({fmt(a['price'])})\nСейчас: {fmt(p)}"
+        else:
+            arrow = 'вырос до' if a['dir'] == 'up' else 'упал до'
+            text = f"🔔 {a['symbol']} ({MARKET_NAMES.get(a['market'], a['market'])}) {arrow} {fmt(a['price'])}\nСейчас: {fmt(p)}"
         ok = send(name, text)
         with lock:
             u = user(name)
@@ -316,9 +325,12 @@ def clean_alert(a):
         symbol = str(a['symbol']).upper()
         price = float(a['price'])
         d = a['dir']
-        if market not in PRICE_URLS or d not in ('up', 'down') or not (price > 0) or not symbol.isalnum() or len(symbol) > 20:
+        if market not in PRICE_URLS or d not in ('up', 'down', 'cross') or not (price > 0) or not symbol.isalnum() or len(symbol) > 20:
             return None
-        return i, {'market': market, 'symbol': symbol, 'price': price, 'dir': d}
+        out = {'market': market, 'symbol': symbol, 'price': price, 'dir': d}
+        if d == 'cross':  # оповещение на линии: сработает, когда цена пересечёт уровень в любую сторону
+            out['label'] = str(a.get('label') or 'линия')[:40]
+        return i, out
     except Exception:  # noqa: BLE001
         return None
 
@@ -393,7 +405,14 @@ class Handler(BaseHTTPRequestHandler):
                 # у каждого устройства свой список: телефон и компьютер не затирают друг друга
                 kept = {i: a for i, a in u['alerts'].items() if a.get('dev') not in (None, device)}
                 # уже сработавшие не возвращаем, даже если терминал ещё считает их активными
-                mine = {i: {**a, 'dev': device} for i, a in incoming.items() if i not in u['fired']}
+                old = u['alerts']
+                mine = {}
+                for i, a in incoming.items():
+                    if i in u['fired']:
+                        continue
+                    mine[i] = {**a, 'dev': device}
+                    if a['dir'] == 'cross' and i in old and old[i].get('prev') is not None:
+                        mine[i]['prev'] = old[i]['prev']  # линия могла чуть сдвинуться — прежнюю цену помним
                 u['alerts'] = {**kept, **mine}
                 fired = [{'id': i, **f} for i, f in u['fired'].items()]
                 active = len(mine)

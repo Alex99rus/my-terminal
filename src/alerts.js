@@ -201,6 +201,12 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
       const { symbol, market } = splitKey(key)
       popup(`${symbol} ${d.dir === 'up' ? 'вырос до' : 'упал до'} ${fmt(d.price)} (пока терминал был закрыт)`, symbol, market)
     },
+    // то же для оповещения на линии
+    onFiredDrawing: (key, d, price) => {
+      draw.update(key, d.id, { alert: { ...d.alert, active: false, triggeredAt: Date.now() } })
+      const { symbol, market } = splitKey(key)
+      popup(`${symbol}: цена дошла до линии «${DRAWING_NAMES[d.type]}» (сейчас ${fmt(price)}) — пока терминал был закрыт`, symbol, market)
+    },
   })
   phone.onChange(() => renderMenu())
 
