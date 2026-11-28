@@ -49,8 +49,8 @@ export function initRealTrade({ getActive, toast }) {
       <form class="pp-form" autocomplete="off">
         <div class="pp-sym"></div>
         <div class="pp-side"><button type="button" data-side="buy" class="buy">Лонг / Купить</button><button type="button" data-side="sell" class="sell">Шорт / Продать</button></div>
-        <div class="pp-types"><button type="button" data-type="market">Рынок</button><button type="button" data-type="limit">Лимит</button></div>
-        <label class="pp-price-row">Цена <input name="price" type="number" step="any"></label>
+        <div class="pp-types"><button type="button" data-type="market">Рынок</button><button type="button" data-type="limit">Лимит</button><button type="button" data-type="stop" title="Стоп-вход: когда цена дойдёт до указанной, биржа откроет позицию по рынку (пробой уровня)">Стоп</button></div>
+        <label class="pp-price-row"><span class="rt-price-lbl">Цена</span> <input name="price" type="number" step="any"></label>
         <label>Сумма, $ <input name="usd" type="number" step="any" min="0"></label>
         <label class="rt-fut">Плечо <span class="pp-qty-wrap"><input name="lev" type="number" min="1" max="125"><button type="button" class="pp-risk rt-maxlev" title="Поставить максимальное плечо, которое биржа разрешает для этой монеты">макс</button></span></label>
         <label class="rt-fut">Стоп-лосс <input name="sl" type="number" step="any" placeholder="необязательно"></label>
@@ -121,7 +121,8 @@ export function initRealTrade({ getActive, toast }) {
     for (const b of panel.querySelectorAll('.pp-tabs button')) b.classList.toggle('active', b.dataset.tab === ui.tab)
     for (const b of panel.querySelectorAll('.pp-side button')) b.classList.toggle('active', b.dataset.side === side)
     for (const b of panel.querySelectorAll('.pp-types button')) b.classList.toggle('active', b.dataset.type === type)
-    panel.querySelector('.pp-price-row').style.display = type === 'limit' ? '' : 'none'
+    panel.querySelector('.pp-price-row').style.display = type === 'market' ? 'none' : ''
+    panel.querySelector('.rt-price-lbl').textContent = type === 'stop' ? 'Сработает при' : 'Цена'
     for (const el of panel.querySelectorAll('.rt-fut')) el.style.display = isFut() ? '' : 'none'
     const a = status.accounts[ui.market]
     const w = $('.rt-warn')
@@ -162,7 +163,7 @@ export function initRealTrade({ getActive, toast }) {
   function updateInfo() {
     const act = getActive()
     const info = $('.pp-info')
-    const px = type === 'limit' ? parseFloat(form.price.value) : act?.price
+    const px = type !== 'market' ? parseFloat(form.price.value) : act?.price
     const usd = parseFloat(form.usd.value)
     if (!act || !px || !(usd > 0)) { info.textContent = ''; return }
     const lev = isFut() ? Math.max(1, parseInt(form.lev.value) || 1) : 1
@@ -211,9 +212,10 @@ export function initRealTrade({ getActive, toast }) {
     const a = getActive()
     if (!a) return toast('Нет активного графика')
     if (a.market !== ui.market) return toast('Рынок графика (' + a.market + ') не совпадает с выбранным в панели. Переключите рынок на графике или в панели.')
-    const px = type === 'limit' ? parseFloat(form.price.value) : a.price
+    const px = type !== 'market' ? parseFloat(form.price.value) : a.price
     const usd = parseFloat(form.usd.value)
-    if (!(px > 0) || !(usd > 0)) return toast('Впишите сумму' + (type === 'limit' ? ' и цену' : ''))
+    if (!(px > 0) || !(usd > 0)) return toast('Впишите сумму' + (type !== 'market' ? ' и цену' : ''))
+    if (type === 'stop' && a.price && Math.abs(px - a.price) / a.price < 0.0002) return toast('Цена срабатывания почти равна текущей — используйте «Рынок»')
     const qty = usd / px
     const sl = parseFloat(form.sl.value) || 0
     const tp = parseFloat(form.tp.value) || 0
@@ -222,7 +224,7 @@ export function initRealTrade({ getActive, toast }) {
       'НАСТОЯЩАЯ СДЕЛКА',
       '',
       `${side === 'buy' ? 'Лонг / Купить' : 'Шорт / Продать'} ${a.symbol} (${TRADE_MARKETS.find((m) => m.code === ui.market).label})`,
-      `Тип: ${type === 'limit' ? 'лимит по ' + px : 'по рынку, ≈ ' + a.price}`,
+      `Тип: ${type === 'limit' ? 'лимит по ' + px : type === 'stop' ? 'СТОП-вход: когда цена дойдёт до ' + px + ', откроется позиция по рынку' : 'по рынку, ≈ ' + a.price}`,
       `Сумма: ${usd} $ (≈ ${qty.toPrecision(5)} монет)` + (lev ? `, плечо ${lev}x` : ''),
       sl ? 'Стоп-лосс: ' + sl : 'Стоп-лосс: НЕТ',
       tp ? 'Тейк-профит: ' + tp : '',
@@ -231,7 +233,7 @@ export function initRealTrade({ getActive, toast }) {
       'Отправить на биржу?',
     ].filter((x, i) => x || i === 1 || i === 8).join('\n')
     if (!confirm(text)) return
-    act(() => call('/api/trade/order', { market: ui.market, symbol: a.symbol, side, type, qty, price: type === 'limit' ? px : undefined, sl, tp, leverage: lev, confirm: true }), '✅ Ордер отправлен')
+    act(() => call('/api/trade/order', { market: ui.market, symbol: a.symbol, side, type, qty, price: type !== 'market' ? px : undefined, sl, tp, leverage: lev, confirm: true }), '✅ Ордер отправлен')
   }
 
   $('.pp-table').onclick = (e) => {

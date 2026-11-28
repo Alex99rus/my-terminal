@@ -176,7 +176,7 @@ def account(market):
                 })
         else:
             out['assets'] = {k: v for k, v in (bal.get('total') or {}).items() if v}
-        for trig in (False, True) if market == 'futures' else (False,):
+        for trig in (False, True) if market != 'spot' else (False,):
             try:
                 for o in ex.fetch_open_orders(None, None, None, {'trigger': True} if trig else {}):
                     out['orders'].append(_order(o, algo=trig))
@@ -245,7 +245,7 @@ def place_order(p):
     lim = _check_enabled(market)
     side = p.get('side')
     typ = p.get('type', 'market')
-    if side not in ('buy', 'sell') or typ not in ('market', 'limit'):
+    if side not in ('buy', 'sell') or typ not in ('market', 'limit', 'stop'):
         raise TradeError('Неверные параметры ордера')
     try:
         qty = float(p.get('qty'))
@@ -259,8 +259,10 @@ def place_order(p):
     futures = market in ('futures', 'bybit-futures')
     if qty <= 0:
         raise TradeError('Количество должно быть больше нуля')
-    if typ == 'limit' and not price:
-        raise TradeError('Для лимитного ордера нужна цена')
+    if typ in ('limit', 'stop') and not price:
+        raise TradeError('Для лимитного и стоп-ордера нужна цена' + (' срабатывания' if typ == 'stop' else ''))
+    if typ == 'stop' and (sl or tp) and market == 'futures':
+        raise TradeError('На Binance фьючерсах стоп и тейк нельзя прикрепить к стоп-ордеру на вход: позиции ещё нет. Поставьте стоп-вход без них, а стоп и тейк добавьте после срабатывания')
     if (sl or tp) and not futures:
         raise TradeError('Стоп и тейк для спота пока не поддерживаются')
     if (sl or tp) and typ == 'limit' and market != 'bybit-futures':
@@ -272,7 +274,10 @@ def place_order(p):
     with _locks[market]:
         ex = get_exchange(market)
         sym = resolve(ex, market, p.get('symbol'))
-        ref = price or float(ex.fetch_ticker(sym)['last'])
+        last = float(ex.fetch_ticker(sym)['last'])
+        ref = price or last
+        if typ == 'stop' and abs(price - last) / last < 0.0002:
+            raise TradeError('Цена срабатывания почти равна текущей — используйте ордер «Рынок»')
         qty = float(ex.amount_to_precision(sym, qty))
         mk = ex.market(sym)
         lo = ((mk.get('limits') or {}).get('amount') or {}).get('min')
@@ -305,14 +310,25 @@ def place_order(p):
                     params['stopLoss'] = {'triggerPrice': float(ex.price_to_precision(sym, sl))}
                 if tp:
                     params['takeProfit'] = {'triggerPrice': float(ex.price_to_precision(sym, tp))}
-            order = ex.create_order(sym, typ, side, qty, float(ex.price_to_precision(sym, price)) if price else None, params)
+            if typ == 'stop':
+                # стоп-вход: когда цена дойдёт до триггера, биржа откроет позицию по рынку
+                trig = float(ex.price_to_precision(sym, price))
+                above = trig > last
+                if market in ('futures', 'spot'):  # Binance: тип ордера зависит от стороны и от того, выше триггер цены или ниже
+                    params['stopLossPrice' if (side == 'buy') == above else 'takeProfitPrice'] = trig
+                else:  # Bybit
+                    params['triggerPrice'] = trig
+                    params['triggerDirection'] = 'above' if above else 'below'
+                order = ex.create_order(sym, 'market', side, qty, None, params)
+            else:
+                order = ex.create_order(sym, typ, side, qty, float(ex.price_to_precision(sym, price)) if price else None, params)
         except TradeError:
             raise
         except Exception as e:  # noqa: BLE001
             log('ордер отклонён', market, p.get('symbol'), side, type(e).__name__)
             raise TradeError('Биржа отклонила ордер: ' + err_text(e)) from None
         log('ордер', market, p.get('symbol'), side, typ, qty, 'id', order.get('id'))
-        res['order'] = _order(order)
+        res['order'] = _order(order, algo=typ == 'stop')
         res['order']['avg'] = order.get('average')
         res['order']['filled'] = order.get('filled')
         # на Binance стоп и тейк — отдельные условные ордера «только закрытие»
@@ -349,7 +365,7 @@ def cancel(p):
         try:
             if p.get('all'):
                 ex.cancel_all_orders(sym)
-                if market == 'futures':
+                if market != 'spot':
                     try:
                         ex.cancel_all_orders(sym, {'trigger': True})
                     except Exception:  # noqa: BLE001
