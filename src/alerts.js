@@ -307,7 +307,7 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
             const pane = getPanes().find((p) => p.key === key)
             const d = draw.find(key, id)
             const last = pane?.bars.at(-1)?.close
-            return draw.update(key, id, { active: true, color: ALERT_COLOR, triggeredAt: null, dir: last != null && d.price < last ? 'down' : d.dir })
+            return draw.update(key, id, { active: true, color: ALERT_COLOR, triggeredAt: null, created: Date.now(), dir: last != null && d.price < last ? 'down' : d.dir })
           }
         }
         const { symbol, market } = splitKey(key)

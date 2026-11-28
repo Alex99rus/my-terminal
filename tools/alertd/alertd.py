@@ -328,6 +328,10 @@ def clean_alert(a):
         if market not in PRICE_URLS or d not in ('up', 'down', 'cross') or not (price > 0) or not symbol.isalnum() or len(symbol) > 20:
             return None
         out = {'market': market, 'symbol': symbol, 'price': price, 'dir': d}
+        try:
+            out['armed'] = float(a.get('armed') or 0)  # когда оповещение поставлено или запущено снова (мс, часы устройства)
+        except (TypeError, ValueError):
+            out['armed'] = 0
         if d == 'cross':  # оповещение на линии: сработает, когда цена пересечёт уровень в любую сторону
             out['label'] = str(a.get('label') or 'линия')[:40]
         return i, out
@@ -408,6 +412,9 @@ class Handler(BaseHTTPRequestHandler):
                 old = u['alerts']
                 mine = {}
                 for i, a in incoming.items():
+                    # оповещение, которое запустили заново (↻) после срабатывания: снова следим за ним
+                    if i in u['fired'] and a.get('armed', 0) > u['fired'][i]['at']:
+                        del u['fired'][i]
                     if i in u['fired']:
                         continue
                     mine[i] = {**a, 'dev': device}

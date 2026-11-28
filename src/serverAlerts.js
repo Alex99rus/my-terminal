@@ -42,11 +42,11 @@ export function initServerAlerts({ onFired, onFiredDrawing }) {
     for (const k of draw.keys()) {
       const [market, symbol] = k.split(':')
       for (const d of draw.list(k)) {
-        if (d.type === 'alert' && d.active) out.push({ id: d.id, market, symbol, price: d.price, dir: d.dir })
+        if (d.type === 'alert' && d.active) out.push({ id: d.id, market, symbol, price: d.price, dir: d.dir, armed: d.created || 0 })
         // оповещение на линии («пересечение»): отправляем текущий уровень линии (у наклонных он каждый раз новый)
         if (d.alert?.active && d.alert.mode === 'cross') {
           drawingLevels(d, Date.now() / 1000).forEach((level, i) => {
-            if (level > 0) out.push({ id: `${d.id}#${i}`, market, symbol, price: level, dir: 'cross', label: DRAWING_NAMES[d.type] })
+            if (level > 0) out.push({ id: `${d.id}#${i}`, market, symbol, price: level, dir: 'cross', label: DRAWING_NAMES[d.type], armed: d.alert.created || 0 })
           })
         }
       }
