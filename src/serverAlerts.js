@@ -119,6 +119,15 @@ export function initServerAlerts({ onFired, onFiredDrawing }) {
   const api = {
     supported,
     isSubscribed: () => subscribed,
+    // терминал сам поймал сигнал: попросить сервер разослать его остальным устройствам (id — у оповещений о цене и линий)
+    async fired(id, text, price, armed) {
+      if (!key) return
+      try {
+        let endpoint = ''
+        if (supported()) endpoint = (await (await navigator.serviceWorker.ready).pushManager.getSubscription())?.endpoint || ''
+        await call('/api/alerts/fired', { id, text, price, endpoint, armed: armed || 0 })
+      } catch {}
+    },
     // подписать этот телефон/браузер на уведомления
     async enable() {
       if (!supported()) return setState('этот браузер не умеет push. На iPhone добавьте сайт на экран «Домой» и откройте оттуда', false)

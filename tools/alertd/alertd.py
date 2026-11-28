@@ -221,10 +221,10 @@ def send_telegram(text):
         return False
 
 
-def send_push(name, text):
-    """Отправляет уведомление на телефоны пользователя. Возвращает, сколько приняли."""
+def send_push(name, text, skip=''):
+    """Отправляет уведомление на телефоны пользователя (кроме адреса skip). Возвращает, сколько приняли."""
     with lock:
-        subs = list(user(name)['subs'].values())
+        subs = [s for s in user(name)['subs'].values() if s['endpoint'] != skip]
     title, _, body = text.partition('\n')
     payload = json.dumps({'title': title, 'body': body, 'url': './'}, ensure_ascii=False).encode()
     ok, dead = 0, []
@@ -392,6 +392,22 @@ class Handler(BaseHTTPRequestHandler):
                 save()
                 n = len(u['subs'])
             return self.reply(200, {'ok': True, 'devices': n})
+        if path == '/api/alerts/fired':
+            # терминал сам поймал сигнал (он открыт на каком-то устройстве) — разослать остальным устройствам
+            text = str(body.get('text') or '')[:200].strip()
+            if not text:
+                return self.reply(400, {'error': 'no text'})
+            aid = str(body.get('id') or '')[:40]
+            with lock:
+                u = user(name)
+                if aid and aid in u['fired'] and body.get('armed', 0) <= u['fired'][aid]['at']:
+                    return self.reply(200, {'ok': True, 'dup': True})  # сервер уже сам отправил
+                if aid:
+                    u['alerts'].pop(aid, None)
+                    u['fired'][aid] = {'at': int(time.time() * 1000), 'price': body.get('price') or 0, 'sent': True}
+                    save()
+            n = send_push(name, '🔔 Оповещение\n' + text, skip=str(body.get('endpoint') or ''))
+            return self.reply(200, {'ok': True, 'push': n})
         if path == '/api/push/unsubscribe':
             with lock:
                 user(name)['subs'].pop(str(body.get('endpoint', '')), None)

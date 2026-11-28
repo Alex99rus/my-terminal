@@ -62,11 +62,11 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
       }
       // оповещение на рисунке: цена пересекла линию (между прошлой и новой ценой)
       if (d.alert?.active && d.alert.mode === 'cross' && prev != null && prev !== price) {
-        for (const level of drawingLevels(d, now)) {
+        for (const [i, level] of drawingLevels(d, now).entries()) {
           if ((prev - level) * (price - level) <= 0) {
             draw.update(key, d.id, { alert: { ...d.alert, active: false, triggeredAt: Date.now() } })
             const { symbol, market } = splitKey(key)
-            notify(`${symbol} ${price > prev ? 'пересёк вверх' : 'пересёк вниз'}: ${DRAWING_NAMES[d.type]} (${fmt(level)})`, symbol, market)
+            notify(`${symbol} ${price > prev ? 'пересёк вверх' : 'пересёк вниз'}: ${DRAWING_NAMES[d.type]} (${fmt(level)})`, symbol, market, `${d.id}#${i}`, price, d.alert.created || 0)
             break
           }
         }
@@ -77,11 +77,13 @@ export function initAlerts({ getPanes, getActivePane, onOpen }) {
   function trigger(key, d, price) {
     draw.update(key, d.id, { active: false, color: ALERT_DONE_COLOR, triggeredAt: Date.now(), triggerPrice: price })
     const { symbol, market } = splitKey(key)
-    notify(`${symbol} ${d.dir === 'up' ? 'вырос до' : 'упал до'} ${fmt(d.price)}`, symbol, market)
+    notify(`${symbol} ${d.dir === 'up' ? 'вырос до' : 'упал до'} ${fmt(d.price)}`, symbol, market, d.id, price, d.created || 0)
   }
 
   // Общий сигнал для всех видов оповещений: окошко, звук, вибрация, уведомление, заголовок
-  function notify(text, symbol, market) {
+  // id и price — чтобы сервер разослал сигнал остальным устройствам (телефону) и не продублировал его сам
+  function notify(text, symbol, market, id = '', price = 0, armed = 0) {
+    phone?.fired(id, text, price, armed)
     popup(text, symbol, market)
     beep()
     if (navigator.userActivation?.hasBeenActive) navigator.vibrate?.([200, 100, 200])
